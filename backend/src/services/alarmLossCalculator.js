@@ -51,6 +51,180 @@ function timeToMinutes(timeStr) {
 }
 
 /**
+ * 查找下一个充放电时段的开始时间
+ */
+function findNextChargingSlot(strategy, currentMinute) {
+  if (!strategy || !strategy.timeslots) return null;
+
+  for (const slot of strategy.timeslots) {
+    const stime = timeToMinutes(slot.stime);
+    if (stime > currentMinute && (slot.ctype === 1 || slot.ctype === 2) && slot.power > 0) {
+      return stime;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * 获取电价时段结束时间
+ */
+function getPriceSlotEnd(priceData, currentMinute) {
+  if (!priceData || !priceData.timingPrice) return 24 * 60;
+
+  for (const slot of priceData.timingPrice) {
+    if (currentMinute >= slot.startTime && currentMinute < slot.endTime) {
+      return slot.endTime;
+    }
+  }
+
+  return 24 * 60;
+}
+
+/**
+ * 按电价时段和充放电周期拆分告警时间段
+ * @param {Date} startTime - 告警开始时间（UTC）
+ * @param {Date} endTime - 告警结束时间（UTC）
+ * @param {Object} strategy - 充放电策略
+ * @param {Object} priceData - 电价数据
+ * @returns {Array} 拆分后的时段数组
+ */
+function splitAlarmIntoTimeslots(startTime, endTime, strategy, priceData) {
+  const UTC_OFFSET_MS = 8 * 60 * 60 * 1000;
+  const EXCLUDE_START = 17 * 60; // 17:00
+  const EXCLUDE_END = 24 * 60;   // 23:59
+
+  const timeslots = [];
+  let currentTime = new Date(startTime);
+  let iterations = 0;
+  const MAX_ITERATIONS = 1000; // 防止无限循环
+
+  while (currentTime < endTime && iterations < MAX_ITERATIONS) {
+    iterations++;
+
+    // 转换为北京时间
+    const currentLocal = new Date(currentTime.getTime() + UTC_OFFSET_MS);
+    const currentMinute = currentLocal.getUTCHours() * 60 + currentLocal.getUTCMinutes();
+
+    // 获取当前的日期（北京时区，但用UTC方法读取）
+    const currentYear = currentLocal.getUTCFullYear();
+    const currentMonth = currentLocal.getUTCMonth();
+    const currentDay = currentLocal.getUTCDate();
+
+    // 跳过 17:00-23:59 时段
+    if (currentMinute >= EXCLUDE_START) {
+      // 跳到第二天 00:00（北京时间）
+      // 构造第二天00:00的UTC时间
+      const nextDayUTC = Date.UTC(currentYear, currentMonth, currentDay + 1, 0, 0, 0, 0) - UTC_OFFSET_MS;
+      currentTime = new Date(nextDayUTC);
+      continue;
+    }
+
+    // 获取当前时刻的功率信息
+    let powerInfo = null;
+    if (strategy && strategy.timeslots) {
+      for (const slot of strategy.timeslots) {
+        const stime = timeToMinutes(slot.stime);
+        const etime = timeToMinutes(slot.etime);
+        if (currentMinute >= stime && currentMinute < etime) {
+          powerInfo = {
+            power: slot.power || 0,
+            ctype: slot.ctype,
+            slotEnd: etime
+          };
+          break;
+        }
+      }
+    }
+
+    if (!powerInfo || powerInfo.power <= 0 || (powerInfo.ctype !== 1 && powerInfo.ctype !== 2)) {
+      // 跳过非充放电时段，跳到下一个充放电时段
+      const nextSlotStart = findNextChargingSlot(strategy, currentMinute);
+      if (nextSlotStart === null || nextSlotStart >= EXCLUDE_START) {
+        // 没有下一个时段了，跳到第二天
+        const nextDayUTC = Date.UTC(currentYear, currentMonth, currentDay + 1, 0, 0, 0, 0) - UTC_OFFSET_MS;
+        currentTime = new Date(nextDayUTC);
+        continue;
+      }
+
+      // 跳到下一个时段（当天的某个时刻）
+      const nextSlotHour = Math.floor(nextSlotStart / 60);
+      const nextSlotMinute = nextSlotStart % 60;
+      const nextSlotUTC = Date.UTC(currentYear, currentMonth, currentDay, nextSlotHour, nextSlotMinute, 0, 0) - UTC_OFFSET_MS;
+      currentTime = new Date(nextSlotUTC);
+      continue;
+    }
+
+    // 当前时段的结束时间：取以下最早者
+    const slotEnd = powerInfo.slotEnd;
+    const priceEnd = getPriceSlotEnd(priceData, currentMinute);
+
+    const candidateEnds = [
+      slotEnd,
+      priceEnd,
+      EXCLUDE_START,
+      EXCLUDE_END
+    ].filter(m => m > currentMinute);
+
+    if (candidateEnds.length === 0) {
+      // 没有候选结束时间，跳到第二天
+      const nextDayUTC = Date.UTC(currentYear, currentMonth, currentDay + 1, 0, 0, 0, 0) - UTC_OFFSET_MS;
+      currentTime = new Date(nextDayUTC);
+      continue;
+    }
+
+    const segmentEndMinute = Math.min(...candidateEnds);
+
+    // 构造时段结束时间（北京时间的某个时刻）
+    let segmentEndTime;
+    if (segmentEndMinute >= EXCLUDE_END) {
+      // 到达当天结束，跳到第二天
+      const nextDayUTC = Date.UTC(currentYear, currentMonth, currentDay + 1, 0, 0, 0, 0) - UTC_OFFSET_MS;
+      segmentEndTime = new Date(nextDayUTC);
+    } else {
+      const segmentEndHour = Math.floor(segmentEndMinute / 60);
+      const segmentEndMin = segmentEndMinute % 60;
+      const segmentEndUTC = Date.UTC(currentYear, currentMonth, currentDay, segmentEndHour, segmentEndMin, 0, 0) - UTC_OFFSET_MS;
+      segmentEndTime = new Date(segmentEndUTC);
+    }
+
+    // 取告警结束时间和时段结束时间的最小值
+    segmentEndTime = new Date(Math.min(segmentEndTime.getTime(), endTime.getTime()));
+
+    // 计算该时段的持续时间（小时）
+    const durationMs = segmentEndTime.getTime() - currentTime.getTime();
+    const durationHours = durationMs / 1000 / 60 / 60;
+
+    if (durationHours > 0) {
+      // 获取该时段的电价
+      const price = priceData.getPriceAtTime(currentMinute);
+
+      timeslots.push({
+        startTime: new Date(currentTime),
+        endTime: new Date(segmentEndTime),
+        startMinute: currentMinute,
+        endMinute: segmentEndMinute,
+        durationHours: durationHours,
+        power: powerInfo.power,
+        price: price,
+        ctype: powerInfo.ctype,
+        ctypeName: powerInfo.ctype === 1 ? '充电' : '放电',
+        date: new Date(currentYear, currentMonth, currentDay)
+      });
+    }
+
+    // 移动到下一个时段
+    currentTime = segmentEndTime;
+  }
+
+  if (iterations >= MAX_ITERATIONS) {
+    console.warn('splitAlarmIntoTimeslots: 达到最大迭代次数，可能存在无限循环');
+  }
+
+  return timeslots;
+}
+
+/**
  * 将 Date 对象转换为当天的分钟数
  */
 function dateToMinutesOfDay(date) {
@@ -376,7 +550,7 @@ async function calculateAlarmLoss(alarm, regionId = '330000', userType = 0, volt
     const startMinuteOfDay = startDateLocal.getUTCHours() * 60 + startDateLocal.getUTCMinutes();
     const endMinuteOfDay = endDateLocal.getUTCHours() * 60 + endDateLocal.getUTCMinutes();
 
-    // 排除17:00-23:59:59时间段的告警
+    // 排除17:00-23:59:59时间段开始的告警（但允许从之前时段延续到此时段的告警）
     if (startMinuteOfDay >= 1020) {
       return {
         alarmId: alarm.alarmId,
@@ -393,103 +567,85 @@ async function calculateAlarmLoss(alarm, regionId = '330000', userType = 0, volt
       };
     }
 
-    // 获取该时刻的功率（从充放电策略）
-    const powerInfo = getPowerAtTime(strategies[0], startMinuteOfDay);
+    // 使用时段拆分算法计算损失
+    // 将告警时间段按电价区间、充放电周期、日期边界进行拆分
+    const timeslots = splitAlarmIntoTimeslots(
+      startTime,
+      endTime,
+      strategies[0],
+      priceData
+    );
 
-    // 只计算在充电(ctype=1)或放电(ctype=2)周期内的告警损失
-    if (!powerInfo || powerInfo.power <= 0 || (powerInfo.ctype !== 1 && powerInfo.ctype !== 2)) {
+    // 如果没有有效时段（全部在排除时段或非充放电周期）
+    if (!timeslots || timeslots.length === 0) {
       return {
         alarmId: alarm.alarmId,
         alarmName: alarm.alarmName,
         device: alarm.device,
-        gatewayDeviceId: alarm.gatewayDeviceId || null, // 网关设备ID
+        gatewayDeviceId: alarm.gatewayDeviceId || null,
         startTime: alarm.startTime,
         endTime: alarm.endTime,
         durationMinutes: alarm.durationMinutes,
         durationHours: durationHours,
         loss: 0,
         lossDetails: [],
-        calculationNote: '告警不在充电或放电周期内'
+        calculationNote: '告警全部在排除时段或非充放电周期内'
       };
     }
 
-    // 获取该时刻的电价
-    const price = priceData.getPriceAtTime(startMinuteOfDay);
-
-    if (!price || price <= 0) {
-      return {
-        alarmId: alarm.alarmId,
-        alarmName: alarm.alarmName,
-        device: alarm.device,
-        gatewayDeviceId: alarm.gatewayDeviceId || null, // 网关设备ID
-        startTime: alarm.startTime,
-        endTime: alarm.endTime,
-        durationMinutes: alarm.durationMinutes,
-        durationHours: durationHours,
-        loss: 0,
-        lossDetails: [],
-        calculationNote: '未找到有效电价数据'
-      };
-    }
-
-    // 初始化损失变量（等待SOC达标检查后再计算）
+    // 计算每个时段的损失并汇总
     totalLoss = 0;
-
-    // 记录详细信息
-    lossDetails.push({
-      time: `${Math.floor(startMinuteOfDay / 60)}:${String(startMinuteOfDay % 60).padStart(2, '0')}`,
-      power: powerInfo.power,
-      price: price,
-      ctype: powerInfo.ctype,
-      ctypeName: powerInfo.ctype === 1 ? '充电' : '放电',
-      durationHours: durationHours,
-      calculatedLoss: 0  // 稍后根据SOC达标情况更新
-    });
-
-    // 计算基于SOC未达标的额外损失
-    let socTargetLoss = 0;
-    let socTargetDetails = null;
     let timeLoss = 0;
 
-    // 获取设备容量
-    const gateway = gateways[0]; // 使用第一个网关的容量
+    timeslots.forEach(slot => {
+      const slotLoss = slot.durationHours * slot.power * slot.price;
+      totalLoss += slotLoss;
+      timeLoss += slotLoss;
+
+      // 记录每个时段的详细信息
+      const startBJ = new Date(slot.startTime.getTime() + UTC_OFFSET_MS);
+      const endBJ = new Date(slot.endTime.getTime() + UTC_OFFSET_MS);
+
+      lossDetails.push({
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        startTimeStr: `${startBJ.getUTCFullYear()}-${String(startBJ.getUTCMonth() + 1).padStart(2, '0')}-${String(startBJ.getUTCDate()).padStart(2, '0')} ${String(startBJ.getUTCHours()).padStart(2, '0')}:${String(startBJ.getUTCMinutes()).padStart(2, '0')}`,
+        endTimeStr: `${endBJ.getUTCFullYear()}-${String(endBJ.getUTCMonth() + 1).padStart(2, '0')}-${String(endBJ.getUTCDate()).padStart(2, '0')} ${String(endBJ.getUTCHours()).padStart(2, '0')}:${String(endBJ.getUTCMinutes()).padStart(2, '0')}`,
+        durationHours: Math.round(slot.durationHours * 10000) / 10000,
+        power: slot.power,
+        price: slot.price,
+        ctype: slot.ctype,
+        ctypeName: slot.ctypeName,
+        calculatedLoss: Math.round(slotLoss * 100) / 100
+      });
+    });
+
+    // SOC达标检查（保留原有逻辑，但仅作为参考）
+    let socTargetLoss = 0;
+    let socTargetDetails = null;
+
+    const gateway = gateways[0];
     if (gateway && gateway.capacity) {
+      // 使用第一个时段的功率信息进行SOC达标检查
+      const firstSlot = timeslots[0];
+      const firstPowerInfo = {
+        power: firstSlot.power,
+        ctype: firstSlot.ctype
+      };
+
       const socLossResult = await calculateSocTargetLoss(
         alarm,
         strategies[0],
-        price,
+        firstSlot.price,
         gateway.capacity,
-        powerInfo
+        firstPowerInfo
       );
 
       socTargetDetails = socLossResult;
+      socTargetLoss = socLossResult.socTargetLoss || 0;
 
-      // 关键逻辑：根据SOC达标情况决定是否计算损失
-      if (socLossResult.socTargetMet === false) {
-        // SOC未达标：说明故障确实造成了影响，只计算时间损失
-        timeLoss = durationHours * powerInfo.power * price;
-        socTargetLoss = socLossResult.socTargetLoss || 0;  // 仅用于展示参考
-        totalLoss = timeLoss;  // 只计算时间损失
-      } else if (socLossResult.socTargetMet === true) {
-        // SOC已达标：故障未造成实际影响，无损失
-        timeLoss = 0;
-        socTargetLoss = 0;
-        totalLoss = 0;
-      } else {
-        // 无法判断SOC达标情况（socTargetMet === undefined）：按原逻辑计算时间损失
-        timeLoss = durationHours * powerInfo.power * price;
-        socTargetLoss = 0;
-        totalLoss = timeLoss;
-      }
-    } else {
-      // 如果没有容量数据，无法判断SOC达标情况，按原逻辑计算时间损失
-      timeLoss = durationHours * powerInfo.power * price;
-      totalLoss = timeLoss;
-    }
-
-    // 更新损失详情中的计算结果
-    if (lossDetails.length > 0) {
-      lossDetails[0].calculatedLoss = totalLoss;
+      // 注意：时段拆分模式下，我们始终计算时间损失
+      // SOC达标情况仅作为参考信息，不影响最终损失计算
     }
 
     return {
@@ -501,12 +657,13 @@ async function calculateAlarmLoss(alarm, regionId = '330000', userType = 0, volt
       endTime: alarm.endTime,
       durationMinutes: alarm.durationMinutes,
       durationHours: durationHours,
-      loss: Math.round(totalLoss * 1000) / 1000, // 保留3位小数精度
-      timeLoss: Math.round(timeLoss * 1000) / 1000, // 时间损失（实际计入总损失）
-      socTargetLoss: Math.round(socTargetLoss * 1000) / 1000, // SOC目标偏差（仅作参考，不计入总损失）
+      loss: Math.round(totalLoss * 100) / 100, // 保留2位小数精度
+      timeLoss: Math.round(timeLoss * 100) / 100, // 时间损失（按时段拆分计算）
+      socTargetLoss: Math.round(socTargetLoss * 100) / 100, // SOC目标偏差（仅作参考）
       lossDetails: lossDetails,
-      socTargetDetails: socTargetDetails, // SOC目标损失详情
-      calculationNote: '损失计算逻辑：检查周期结束时SOC是否达标。充电周期需达95%，放电周期需达8%。SOC未达标时，损失 = 时间损失（故障持续时长×功率×电价）；SOC达标时损失为0（故障未影响最终目标）。SOC目标偏差仅作参考，不计入总损失。仅计算充电和放电周期内的告警，排除17:00-23:59:59时段'
+      socTargetDetails: socTargetDetails,
+      timeslotCount: timeslots.length, // 拆分的时段数量
+      calculationNote: `损失计算使用时段拆分算法：将告警时间段按电价区间、充放电周期、日期边界自动拆分为${timeslots.length}个时段，每个时段使用对应的功率和电价单独计算损失后汇总。自动排除17:00-23:59:59时段和非充放电周期。此方法确保跨天、跨电价区间的告警损失计算准确。`
     };
 
   } catch (error) {

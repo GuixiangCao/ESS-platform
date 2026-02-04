@@ -1,0 +1,344 @@
+/* SOC详情模态框 */
+.soc-modal {
+  max-width: 1200px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* 设备选择器 */
+.device-selector {
+  margin-bottom: var(--space-xl);
+  padding: var(--space-lg);
+  background: var(--surface-variant);
+  border-radius: var(--radius-lg);
+}
+
+.selector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-md);
+  gap: var(--space-md);
+}
+
+.device-selector h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.alarm-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-md);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.alarm-toggle:hover {
+  background: var(--surface-hover);
+  border-color: #ff4444;
+  color: #ff4444;
+}
+
+.alarm-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.alarm-toggle svg {
+  color: #ff4444;
+}
+
+.device-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.device-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.device-chip:hover {
+  background: var(--surface-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.device-chip.selected {
+  background: var(--surface);
+  font-weight: 600;
+  box-shadow: var(--shadow-md);
+}
+
+.device-chip-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.device-chip-count {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-left: var(--space-xs);
+}
+
+/* 图表容器 */
+.chart-container {
+  margin-bottom: var(--space-xl);
+  padding: var(--space-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.chart-hint {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-top: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: rgba(255, 68, 68, 0.05);
+  border-left: 3px solid #ff4444;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.chart-hint svg {
+  color: #ff4444;
+  flex-shrink: 0;
+}
+
+.empty-chart {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl) * 2;
+  color: var(--text-secondary);
+  gap: var(--space-md);
+}
+
+.empty-chart svg {
+  opacity: 0.5;
+}
+
+/* SOC统计卡片 */
+.soc-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--surface-variant);
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+/* 加载和错误状态 */
+.loading-state,
+.error-state,
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl) * 2;
+  gap: var(--space-md);
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.loading-state svg,
+.error-state svg,
+.empty-state svg {
+  opacity: 0.5;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.btn-retry {
+  margin-top: var(--space-md);
+  padding: var(--space-sm) var(--space-lg);
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-retry:hover {
+  background: var(--accent-hover);
+  box-shadow: var(--shadow-sm);
+}
+
+.empty-hint {
+  font-size: 0.85rem;
+  opacity: 0.7;
+  max-width: 400px;
+}
+
+/* 模态框通用样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal-backdrop);
+  padding: var(--space-lg);
+}
+
+.modal-content {
+  background: var(--surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  width: 100%;
+  max-width: 800px;
+  position: relative;
+  z-index: var(--z-modal);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-xl);
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-title-section {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.modal-icon {
+  color: var(--primary-color);
+  flex-shrink: 0;
+}
+
+.modal-title-section h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--text-primary);
+}
+
+.modal-subtitle {
+  margin: var(--space-xs) 0 0 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.modal-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: var(--surface-variant);
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.modal-close-btn:hover {
+  background: var(--surface-pressed);
+  color: var(--text-primary);
+}
+
+.modal-body {
+  padding: var(--space-xl);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .soc-modal {
+    max-width: 100%;
+    max-height: 95vh;
+    margin: var(--space-sm);
+  }
+
+  .device-chips {
+    gap: var(--space-xs);
+  }
+
+  .device-chip {
+    font-size: 0.8rem;
+    padding: 6px 12px;
+  }
+
+  .chart-container {
+    padding: var(--space-md);
+  }
+
+  .soc-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-header {
+    padding: var(--space-md);
+  }
+
+  .modal-body {
+    padding: var(--space-md);
+  }
+}

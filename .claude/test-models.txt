@@ -1,0 +1,12 @@
+测试以下模型（逐个尝试）：
+
+1. claude-3-5-sonnet-20241022
+2. claude-3-sonnet-20240229
+3. claude-3-haiku-20240307
+4. claude-3-opus-20240229
+5. claude-sonnet-4-5-20250929
+
+测试方法：
+编辑 .claude/settings.json，添加：
+"model": "模型名称"
+然后重启 VS Code

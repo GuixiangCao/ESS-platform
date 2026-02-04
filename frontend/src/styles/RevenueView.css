@@ -1,0 +1,584 @@
+/* 收益查看本地化页面样式 */
+
+.revenue-view {
+  padding: var(--space-lg);
+  background-color: var(--bg-primary);
+  min-height: 100vh;
+  color: var(--text-primary);
+}
+
+/* 页头 */
+.page-header {
+  margin-bottom: var(--space-xl);
+}
+
+.header-content h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0 0 var(--space-sm) 0;
+  color: var(--text-primary);
+}
+
+.subtitle {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* 下载按钮 */
+.download-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background-color: var(--accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: var(--transition-base);
+  white-space: nowrap;
+}
+
+.download-btn:hover {
+  background-color: #2563eb;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  transform: translateY(-1px);
+}
+
+.download-btn:active {
+  transform: translateY(0);
+}
+
+/* 货币选择卡片 */
+.currency-selector-card {
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  margin-bottom: var(--space-xl);
+  overflow: hidden;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-primary);
+}
+
+.card-header svg {
+  color: var(--accent);
+}
+
+.card-header h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0;
+  flex: 1;
+  color: var(--text-primary);
+}
+
+.hint {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: normal;
+}
+
+.card-content {
+  padding: var(--space-lg);
+}
+
+/* 货币网格 */
+.currency-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-md);
+  padding: var(--space-lg);
+}
+
+.currency-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background-color: var(--bg-primary);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition-base);
+  text-align: left;
+}
+
+.currency-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-2px);
+}
+
+.currency-card.active {
+  border-color: var(--accent);
+  background-color: rgba(59, 130, 246, 0.05);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.currency-flag {
+  font-size: 2rem;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+
+.currency-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.currency-country {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.currency-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.currency-code {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* 信息卡片 */
+.info-card {
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  margin-bottom: var(--space-xl);
+  overflow: hidden;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-md);
+}
+
+.info-item-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background-color: var(--bg-primary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+}
+
+.info-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-value {
+  font-size: 1rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.currency-symbol {
+  font-size: 1.5rem;
+  color: var(--accent);
+}
+
+/* 格式化表格卡片 */
+.format-table-card {
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  margin-bottom: var(--space-xl);
+  overflow: hidden;
+}
+
+.table-container {
+  overflow-x: auto;
+  padding: var(--space-lg);
+}
+
+.format-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.format-table thead {
+  background-color: var(--bg-primary);
+  border-bottom: 2px solid var(--border-color);
+}
+
+.format-table th {
+  padding: var(--space-md);
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.format-table tbody tr {
+  border-bottom: 1px solid var(--border-color);
+  transition: var(--transition-base);
+}
+
+.format-table tbody tr:hover {
+  background-color: var(--bg-primary);
+}
+
+.format-table td {
+  padding: var(--space-md);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.amount-level {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.raw-amount {
+  font-family: 'Monaco', 'Courier New', monospace;
+  color: var(--text-secondary);
+}
+
+.formatted-amount,
+.abbreviated-amount,
+.subunit-amount {
+  padding: 0 !important;
+}
+
+.copy-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--space-md);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: var(--transition-base);
+  border-radius: var(--radius-sm);
+}
+
+.copy-btn:hover {
+  background-color: var(--bg-secondary);
+}
+
+.amount-text {
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.amount-text.highlight {
+  color: var(--accent);
+  font-size: 1rem;
+}
+
+.copy-icon {
+  color: var(--text-secondary);
+  opacity: 0;
+  transition: var(--transition-base);
+}
+
+.copy-btn:hover .copy-icon {
+  opacity: 1;
+}
+
+.copy-icon.success {
+  color: #22c55e;
+  opacity: 1;
+}
+
+/* 使用说明卡片 */
+.usage-card {
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.usage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-lg);
+}
+
+.usage-item {
+  padding: var(--space-lg);
+  background-color: var(--bg-primary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+}
+
+.usage-item h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-md) 0;
+}
+
+.usage-item ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.usage-item li {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  padding: var(--space-sm) 0;
+  padding-left: var(--space-md);
+  position: relative;
+}
+
+.usage-item li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+  font-weight: bold;
+}
+
+.usage-item li strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* 响应式设计 */
+@media (max-width: 1024px) {
+  .currency-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+
+  .info-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .usage-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .revenue-view {
+    padding: var(--space-md);
+  }
+
+  .header-content h1 {
+    font-size: 1.5rem;
+  }
+
+  .currency-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: var(--space-sm);
+  }
+
+  .currency-card {
+    flex-direction: column;
+    text-align: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm);
+  }
+
+  .currency-flag {
+    width: 40px;
+    height: 40px;
+    font-size: 1.5rem;
+  }
+
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .table-container {
+    padding: var(--space-md);
+  }
+
+  .format-table {
+    font-size: 0.8125rem;
+  }
+
+  .format-table th,
+  .format-table td {
+    padding: var(--space-sm);
+  }
+
+  .amount-text {
+    font-size: 0.75rem;
+  }
+
+  .amount-text.highlight {
+    font-size: 0.875rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .currency-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .format-table th:nth-child(2),
+  .format-table td:nth-child(2),
+  .format-table th:nth-child(5),
+  .format-table td:nth-child(5) {
+    display: none;
+  }
+
+  .currency-country {
+    font-size: 0.7rem;
+  }
+}
+
+/* 转换关系部分 */
+.conversion-section {
+  margin-top: var(--space-lg);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--border-color);
+}
+
+.section-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-md) 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.section-title::before {
+  content: '';
+  width: 4px;
+  height: 16px;
+  background-color: var(--accent);
+  border-radius: 2px;
+}
+
+.conversion-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.conversion-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background-color: rgba(59, 130, 246, 0.03);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(59, 130, 246, 0.1);
+  transition: var(--transition-base);
+}
+
+.conversion-item:hover {
+  background-color: rgba(59, 130, 246, 0.06);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.conversion-unit {
+  font-weight: 600;
+  color: var(--accent);
+  min-width: 100px;
+  font-size: 0.875rem;
+}
+
+.conversion-arrow {
+  color: var(--text-secondary);
+  font-weight: bold;
+  font-size: 1.125rem;
+  flex-shrink: 0;
+}
+
+.conversion-value {
+  font-family: 'Monaco', 'Courier New', monospace;
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+/* 英文翻译样式 */
+.unit-en {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 400;
+  font-style: italic;
+  margin-left: 0.25rem;
+}
+
+/* 转换关系响应式设计 */
+@media (max-width: 768px) {
+  .conversion-section {
+    margin-top: var(--space-md);
+    padding-top: var(--space-md);
+  }
+
+  .conversion-item {
+    gap: var(--space-sm);
+    padding: var(--space-sm);
+  }
+
+  .conversion-unit {
+    min-width: 80px;
+    font-size: 0.8125rem;
+  }
+
+  .conversion-arrow {
+    font-size: 1rem;
+  }
+
+  .conversion-value {
+    font-size: 0.8125rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .conversion-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-xs);
+  }
+
+  .conversion-unit {
+    min-width: unset;
+  }
+
+  .conversion-arrow {
+    transform: rotate(90deg);
+    align-self: center;
+  }
+}

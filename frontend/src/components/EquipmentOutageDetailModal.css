@@ -1,0 +1,185 @@
+.equipment-outage-modal {
+  max-width: 900px;
+  width: 90%;
+  max-height: 85vh;
+}
+
+.equipment-outage-modal .modal-body {
+  max-height: calc(85vh - 80px);
+  overflow-y: auto;
+  padding: 0;
+}
+
+.summary-stats {
+  display: flex;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.summary-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.summary-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.summary-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.summary-value.highlight {
+  color: var(--error);
+}
+
+.daily-list {
+  padding: 1rem;
+}
+
+.daily-item {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.daily-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.daily-date {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.date-text {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.daily-stats {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.alarm-count {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  padding: 0.25rem 0.75rem;
+  background: var(--bg-tertiary);
+  border-radius: 12px;
+}
+
+.daily-loss {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--error);
+}
+
+.alarm-details {
+  padding: 0.75rem 1.25rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.alarm-detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  border-left: 3px solid var(--error);
+}
+
+.alarm-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.alarm-name {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.alarm-device {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.alarm-metrics {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+
+.alarm-duration {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.alarm-loss {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--error);
+}
+
+.empty-state {
+  padding: 3rem;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .summary-stats {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .daily-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .daily-stats {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .alarm-detail-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .alarm-metrics {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "cr_87b1b74c2d56773d76d1ab13c43469d37844b3e2915ebdd3f5f9804f0020997a",
+    "ANTHROPIC_BASE_URL": "https://aidev.deyecloud.com/api/v1"
+  }
+}

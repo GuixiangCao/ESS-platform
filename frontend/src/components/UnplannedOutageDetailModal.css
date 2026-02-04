@@ -1,0 +1,144 @@
+.unplanned-outage-modal {
+  max-width: 900px;
+  width: 90%;
+  max-height: 85vh;
+}
+
+.unplanned-outage-modal .modal-body {
+  max-height: calc(85vh - 80px);
+  overflow-y: auto;
+  padding: 0;
+}
+
+.highlight-orange {
+  color: #a855f7 !important;
+}
+
+.info-banner {
+  padding: 1rem 1.5rem;
+  background: #faf5ff;
+  border-left: 4px solid #a855f7;
+  margin: 1rem 1.5rem 0;
+  border-radius: 4px;
+}
+
+.info-banner p {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.info-banner strong {
+  color: #a855f7;
+  font-weight: 600;
+}
+
+.date-badge {
+  display: inline-block;
+  padding: 0.25rem 0.625rem;
+  background: #a855f7;
+  color: white;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  margin-left: 0.75rem;
+}
+
+.daily-loss-orange {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #a855f7;
+}
+
+.day-details {
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  margin: 0.75rem 1.25rem 1rem;
+}
+
+.detail-row {
+  display: flex;
+  gap: 2rem;
+}
+
+.detail-item {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.625rem 0.875rem;
+  background: var(--bg-primary);
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+}
+
+.detail-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.detail-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.detail-value-small {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.empty-state-hint {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.soc-chart-container {
+  padding: 1rem 1.25rem;
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border-color);
+}
+
+.soc-chart-title {
+  margin: 0 0 1rem 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.soc-chart-empty {
+  padding: 3rem;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .info-banner {
+    margin: 1rem;
+  }
+
+  .detail-row {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .day-details {
+    margin: 0.75rem 1rem 1rem;
+  }
+
+  .date-badge {
+    display: block;
+    width: fit-content;
+    margin-left: 0;
+    margin-top: 0.5rem;
+  }
+}

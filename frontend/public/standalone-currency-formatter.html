@@ -1,0 +1,1594 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>收益查看本地化 - 全球货币格式化工具</title>
+  <style>
+/* CSS变量定义 */
+:root {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --accent: #3b82f6;
+  --border-color: #e2e8f0;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --transition-base: all 0.2s ease;
+}
+
+/* 全局样式 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+/* 收益查看本地化页面样式 */
+
+.revenue-view {
+  padding: var(--space-lg);
+  background-color: var(--bg-primary);
+  min-height: 100vh;
+  color: var(--text-primary);
+}
+
+/* 页头 */
+.page-header {
+  margin-bottom: var(--space-xl);
+}
+
+.header-content h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0 0 var(--space-sm) 0;
+  color: var(--text-primary);
+}
+
+.subtitle {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* 下载按钮 */
+.download-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background-color: var(--accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: var(--transition-base);
+  white-space: nowrap;
+}
+
+.download-btn:hover {
+  background-color: #2563eb;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  transform: translateY(-1px);
+}
+
+.download-btn:active {
+  transform: translateY(0);
+}
+
+/* 货币选择卡片 */
+.currency-selector-card {
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  margin-bottom: var(--space-xl);
+  overflow: hidden;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-primary);
+}
+
+.card-header svg {
+  color: var(--accent);
+}
+
+.card-header h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0;
+  flex: 1;
+  color: var(--text-primary);
+}
+
+.hint {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: normal;
+}
+
+.card-content {
+  padding: var(--space-lg);
+}
+
+/* 货币网格 */
+.currency-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-md);
+  padding: var(--space-lg);
+}
+
+.currency-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background-color: var(--bg-primary);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition-base);
+  text-align: left;
+}
+
+.currency-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-2px);
+}
+
+.currency-card.active {
+  border-color: var(--accent);
+  background-color: rgba(59, 130, 246, 0.05);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.currency-flag {
+  font-size: 2rem;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+
+.currency-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.currency-country {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.currency-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.currency-code {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* 信息卡片 */
+.info-card {
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  margin-bottom: var(--space-xl);
+  overflow: hidden;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-md);
+}
+
+.info-item-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background-color: var(--bg-primary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+}
+
+.info-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-value {
+  font-size: 1rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.currency-symbol {
+  font-size: 1.5rem;
+  color: var(--accent);
+}
+
+/* 格式化表格卡片 */
+.format-table-card {
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  margin-bottom: var(--space-xl);
+  overflow: hidden;
+}
+
+.table-container {
+  overflow-x: auto;
+  padding: var(--space-lg);
+}
+
+.format-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.format-table thead {
+  background-color: var(--bg-primary);
+  border-bottom: 2px solid var(--border-color);
+}
+
+.format-table th {
+  padding: var(--space-md);
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.format-table tbody tr {
+  border-bottom: 1px solid var(--border-color);
+  transition: var(--transition-base);
+}
+
+.format-table tbody tr:hover {
+  background-color: var(--bg-primary);
+}
+
+.format-table td {
+  padding: var(--space-md);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.amount-level {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.raw-amount {
+  font-family: 'Monaco', 'Courier New', monospace;
+  color: var(--text-secondary);
+}
+
+.formatted-amount,
+.abbreviated-amount,
+.subunit-amount {
+  padding: 0 !important;
+}
+
+.copy-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--space-md);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: var(--transition-base);
+  border-radius: var(--radius-sm);
+}
+
+.copy-btn:hover {
+  background-color: var(--bg-secondary);
+}
+
+.amount-text {
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.amount-text.highlight {
+  color: var(--accent);
+  font-size: 1rem;
+}
+
+.copy-icon {
+  color: var(--text-secondary);
+  opacity: 0;
+  transition: var(--transition-base);
+}
+
+.copy-btn:hover .copy-icon {
+  opacity: 1;
+}
+
+.copy-icon.success {
+  color: #22c55e;
+  opacity: 1;
+}
+
+/* 使用说明卡片 */
+.usage-card {
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.usage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-lg);
+}
+
+.usage-item {
+  padding: var(--space-lg);
+  background-color: var(--bg-primary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+}
+
+.usage-item h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-md) 0;
+}
+
+.usage-item ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.usage-item li {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  padding: var(--space-sm) 0;
+  padding-left: var(--space-md);
+  position: relative;
+}
+
+.usage-item li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+  font-weight: bold;
+}
+
+.usage-item li strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* 响应式设计 */
+@media (max-width: 1024px) {
+  .currency-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+
+  .info-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .usage-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .revenue-view {
+    padding: var(--space-md);
+  }
+
+  .header-content h1 {
+    font-size: 1.5rem;
+  }
+
+  .currency-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: var(--space-sm);
+  }
+
+  .currency-card {
+    flex-direction: column;
+    text-align: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm);
+  }
+
+  .currency-flag {
+    width: 40px;
+    height: 40px;
+    font-size: 1.5rem;
+  }
+
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .table-container {
+    padding: var(--space-md);
+  }
+
+  .format-table {
+    font-size: 0.8125rem;
+  }
+
+  .format-table th,
+  .format-table td {
+    padding: var(--space-sm);
+  }
+
+  .amount-text {
+    font-size: 0.75rem;
+  }
+
+  .amount-text.highlight {
+    font-size: 0.875rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .currency-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .format-table th:nth-child(2),
+  .format-table td:nth-child(2),
+  .format-table th:nth-child(5),
+  .format-table td:nth-child(5) {
+    display: none;
+  }
+
+  .currency-country {
+    font-size: 0.7rem;
+  }
+}
+
+/* 转换关系部分 */
+.conversion-section {
+  margin-top: var(--space-lg);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--border-color);
+}
+
+.section-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-md) 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.section-title::before {
+  content: '';
+  width: 4px;
+  height: 16px;
+  background-color: var(--accent);
+  border-radius: 2px;
+}
+
+.conversion-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.conversion-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background-color: rgba(59, 130, 246, 0.03);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(59, 130, 246, 0.1);
+  transition: var(--transition-base);
+}
+
+.conversion-item:hover {
+  background-color: rgba(59, 130, 246, 0.06);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.conversion-unit {
+  font-weight: 600;
+  color: var(--accent);
+  min-width: 100px;
+  font-size: 0.875rem;
+}
+
+.conversion-arrow {
+  color: var(--text-secondary);
+  font-weight: bold;
+  font-size: 1.125rem;
+  flex-shrink: 0;
+}
+
+.conversion-value {
+  font-family: 'Monaco', 'Courier New', monospace;
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+/* 英文翻译样式 */
+.unit-en {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 400;
+  font-style: italic;
+  margin-left: 0.25rem;
+}
+
+/* 转换关系响应式设计 */
+@media (max-width: 768px) {
+  .conversion-section {
+    margin-top: var(--space-md);
+    padding-top: var(--space-md);
+  }
+
+  .conversion-item {
+    gap: var(--space-sm);
+    padding: var(--space-sm);
+  }
+
+  .conversion-unit {
+    min-width: 80px;
+    font-size: 0.8125rem;
+  }
+
+  .conversion-arrow {
+    font-size: 1rem;
+  }
+
+  .conversion-value {
+    font-size: 0.8125rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .conversion-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-xs);
+  }
+
+  .conversion-unit {
+    min-width: unset;
+  }
+
+  .conversion-arrow {
+    transform: rotate(90deg);
+    align-self: center;
+  }
+}
+
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+/**
+ * 全球货币格式化工具
+ * 支持各国货币的显示规范、大额缩写和精度控制
+ */
+
+// 货币配置表 - 覆盖全球主要国家和地区
+const CURRENCY_CONFIGS = {
+  // 美国 - 美元
+  'en-US': {
+    currency: 'USD',
+    symbol: '$',
+    flag: '🇺🇸',
+    name: 'US Dollar',
+    country: '美国',
+    subunit: 'cents',
+    subunitDivider: 100,
+    decimals: 2,
+    thousandsSeparator: ',',
+    decimalSeparator: '.',
+    symbolPosition: 'before',
+    abbreviations: [
+      { value: 1e12, suffix: 'T', decimals: 2 }, // Trillion
+      { value: 1e9, suffix: 'B', decimals: 2 },  // Billion
+      { value: 1e6, suffix: 'M', decimals: 2 },  // Million
+      { value: 1e3, suffix: 'K', decimals: 2 },  // Thousand
+    ]
+  },
+
+  // 欧元区
+  'de-DE': {
+    currency: 'EUR',
+    symbol: '€',
+    flag: '🇪🇺',
+    name: 'Euro',
+    country: '欧元区',
+    subunit: 'cents',
+    subunitEn: 'cents',
+    subunitDivider: 100,
+    decimals: 2,
+    thousandsSeparator: ',',
+    decimalSeparator: '.',
+    symbolPosition: 'before',
+    abbreviations: [
+      { value: 1e12, suffix: 'T', decimals: 2 },  // Trillion
+      { value: 1e9, suffix: 'B', decimals: 2 },   // Billion
+      { value: 1e6, suffix: 'M', decimals: 2 },   // Million
+      { value: 1e3, suffix: 'K', decimals: 2 },   // Thousand
+    ]
+  },
+
+  // 英国 - 英镑
+  'en-GB': {
+    currency: 'GBP',
+    symbol: '£',
+    flag: '🇬🇧',
+    name: 'Pound Sterling',
+    country: '英国',
+    subunit: 'pence',
+    subunitDivider: 100,
+    decimals: 2,
+    thousandsSeparator: ',',
+    decimalSeparator: '.',
+    symbolPosition: 'before',
+    abbreviations: [
+      { value: 1e12, suffix: 'T', decimals: 2 },
+      { value: 1e9, suffix: 'bn', decimals: 2 },
+      { value: 1e6, suffix: 'm', decimals: 2 },
+      { value: 1e3, suffix: 'k', decimals: 2 },
+    ]
+  },
+
+  // 印度 - 卢比
+  'en-IN': {
+    currency: 'INR',
+    symbol: '₹',
+    flag: '🇮🇳',
+    name: 'Rupee',
+    country: '印度',
+    subunit: 'paise',
+    subunitDivider: 100,
+    decimals: 2,
+    thousandsSeparator: ',',
+    decimalSeparator: '.',
+    symbolPosition: 'before',
+    abbreviations: [
+      { value: 1e7, suffix: 'Cr', decimals: 2 },  // Crore
+      { value: 1e5, suffix: 'L', decimals: 2 },   // Lakh
+      { value: 1e3, suffix: 'K', decimals: 2 },
+    ]
+  },
+
+  // 俄罗斯 - 卢布
+  'ru-RU': {
+    currency: 'RUB',
+    symbol: '₽',
+    flag: '🇷🇺',
+    name: 'Рубль',
+    country: '俄罗斯',
+    subunit: 'копейка',
+    subunitEn: 'kopeck',
+    subunitDivider: 100,
+    decimals: 2,
+    thousandsSeparator: ' ',
+    decimalSeparator: ',',
+    symbolPosition: 'after',
+    abbreviations: [
+      { value: 1e12, suffix: ' трлн', suffixEn: 'trillion', decimals: 2 },
+      { value: 1e9, suffix: ' млрд', suffixEn: 'billion', decimals: 2 },
+      { value: 1e6, suffix: ' млн', suffixEn: 'million', decimals: 2 },
+      { value: 1e3, suffix: ' тыс', suffixEn: 'thousand', decimals: 2 },
+    ]
+  },
+
+  // 巴西 - 雷亚尔
+  'pt-BR': {
+    currency: 'BRL',
+    symbol: 'R$',
+    flag: '🇧🇷',
+    name: 'Real',
+    country: '巴西',
+    subunit: 'centavos',
+    subunitEn: 'centavos',
+    subunitDivider: 100,
+    decimals: 2,
+    thousandsSeparator: '.',
+    decimalSeparator: ',',
+    symbolPosition: 'before',
+    abbreviations: [
+      { value: 1e12, suffix: ' tri', suffixEn: 'trillion', decimals: 2 },
+      { value: 1e9, suffix: ' bi', suffixEn: 'billion', decimals: 2 },
+      { value: 1e6, suffix: ' mi', suffixEn: 'million', decimals: 2 },
+      { value: 1e3, suffix: ' mil', suffixEn: 'thousand', decimals: 2 },
+    ]
+  },
+
+  // 澳大利亚 - 澳元
+  'en-AU': {
+    currency: 'AUD',
+    symbol: 'A$',
+    flag: '🇦🇺',
+    name: 'Australian Dollar',
+    country: '澳大利亚',
+    subunit: 'cents',
+    subunitDivider: 100,
+    decimals: 2,
+    thousandsSeparator: ',',
+    decimalSeparator: '.',
+    symbolPosition: 'before',
+    abbreviations: [
+      { value: 1e9, suffix: 'B', decimals: 2 },
+      { value: 1e6, suffix: 'M', decimals: 2 },
+      { value: 1e3, suffix: 'K', decimals: 2 },
+    ]
+  },
+
+  // 加拿大 - 加元
+  'en-CA': {
+    currency: 'CAD',
+    symbol: 'C$',
+    flag: '🇨🇦',
+    name: 'Canadian Dollar',
+    country: '加拿大',
+    subunit: 'cents',
+    subunitDivider: 100,
+    decimals: 2,
+    thousandsSeparator: ',',
+    decimalSeparator: '.',
+    symbolPosition: 'before',
+    abbreviations: [
+      { value: 1e9, suffix: 'B', decimals: 2 },
+      { value: 1e6, suffix: 'M', decimals: 2 },
+      { value: 1e3, suffix: 'K', decimals: 2 },
+    ]
+  },
+
+  // 瑞士 - 瑞士法郎
+  'de-CH': {
+    currency: 'CHF',
+    symbol: 'CHF',
+    flag: '🇨🇭',
+    name: 'Schweizer Franken',
+    country: '瑞士',
+    subunit: 'Rappen',
+    subunitEn: 'rappen',
+    subunitDivider: 100,
+    decimals: 2,
+    thousandsSeparator: "'",
+    decimalSeparator: '.',
+    symbolPosition: 'before',
+    abbreviations: [
+      { value: 1e9, suffix: ' Mrd.', suffixEn: 'billion', decimals: 2 },
+      { value: 1e6, suffix: ' Mio.', suffixEn: 'million', decimals: 2 },
+      { value: 1e3, suffix: ' Tsd.', suffixEn: 'thousand', decimals: 2 },
+    ]
+  },
+
+  // 新加坡 - 新元
+  'en-SG': {
+    currency: 'SGD',
+    symbol: 'S$',
+    flag: '🇸🇬',
+    name: 'Singapore Dollar',
+    country: '新加坡',
+    subunit: 'cents',
+    subunitDivider: 100,
+    decimals: 2,
+    thousandsSeparator: ',',
+    decimalSeparator: '.',
+    symbolPosition: 'before',
+    abbreviations: [
+      { value: 1e9, suffix: 'B', decimals: 2 },
+      { value: 1e6, suffix: 'M', decimals: 2 },
+      { value: 1e3, suffix: 'K', decimals: 2 },
+    ]
+  },
+
+  // 中国香港 - 港币
+  'zh-HK': {
+    currency: 'HKD',
+    symbol: 'HK$',
+    flag: '🇭🇰',
+    name: '港幣',
+    country: '中國香港',
+    subunit: '仙',
+    subunitEn: 'sin',
+    subunitDivider: 100,
+    secondarySubunit: '毫',
+    secondarySubunitEn: 'ho',
+    secondarySubunitDivider: 10,
+    decimals: 2,
+    thousandsSeparator: ',',
+    decimalSeparator: '.',
+    symbolPosition: 'before',
+    abbreviations: [
+      { value: 1e8, suffix: '億', suffixEn: 'hundred million', decimals: 2 },
+      { value: 1e4, suffix: '萬', suffixEn: 'ten thousand', decimals: 2 },
+    ]
+  },
+
+  // 阿联酋 - 迪拉姆
+  'ar-AE': {
+    currency: 'AED',
+    symbol: 'د.إ',
+    flag: '🇦🇪',
+    name: 'Dirham',
+    country: '阿联酋',
+    subunit: 'fils',
+    subunitEn: 'fils',
+    subunitDivider: 100,
+    decimals: 2,
+    thousandsSeparator: ',',
+    decimalSeparator: '.',
+    symbolPosition: 'before',
+    abbreviations: [
+      { value: 1e9, suffix: 'B', suffixEn: 'billion', decimals: 2 },
+      { value: 1e6, suffix: 'M', suffixEn: 'million', decimals: 2 },
+      { value: 1e3, suffix: 'K', suffixEn: 'thousand', decimals: 2 },
+    ]
+  },
+
+  // 印度尼西亚 - 印尼盾
+  'id-ID': {
+    currency: 'IDR',
+    symbol: 'Rp',
+    flag: '🇮🇩',
+    name: 'Rupiah',
+    country: '印度尼西亚',
+    subunit: 'sen',
+    subunitEn: 'sen',
+    subunitDivider: 100,
+    decimals: 0, // 印尼盾通常不使用小数
+    thousandsSeparator: '.',
+    decimalSeparator: ',',
+    symbolPosition: 'before',
+    abbreviations: [
+      { value: 1e12, suffix: ' T', suffixEn: 'trillion', decimals: 2 },  // Triliun
+      { value: 1e9, suffix: ' M', suffixEn: 'billion', decimals: 2 },   // Miliar
+      { value: 1e6, suffix: ' Jt', suffixEn: 'million', decimals: 2 },  // Juta
+      { value: 1e3, suffix: ' Rb', suffixEn: 'thousand', decimals: 2 },  // Ribu
+    ]
+  },
+
+  // 泰国 - 泰铢
+  'th-TH': {
+    currency: 'THB',
+    symbol: '฿',
+    flag: '🇹🇭',
+    name: 'Baht',
+    country: '泰国',
+    subunit: 'สตางค์',
+    subunitEn: 'satang',
+    subunitDivider: 100,
+    decimals: 2,
+    thousandsSeparator: ',',
+    decimalSeparator: '.',
+    symbolPosition: 'before',
+    abbreviations: [
+      { value: 1e9, suffix: ' พันล้าน', suffixEn: 'billion', decimals: 2 },  // 十亿
+      { value: 1e6, suffix: 'L', suffixEn: 'million', decimals: 2 },          // 百万 (ล้าน)
+      { value: 1e3, suffix: 'k', suffixEn: 'thousand', decimals: 2 },         // 千 (พัน)
+    ]
+  },
+
+  // 越南 - 越南盾
+  'vi-VN': {
+    currency: 'VND',
+    symbol: '₫',
+    flag: '🇻🇳',
+    name: 'Đồng',
+    country: '越南',
+    subunit: 'xu',
+    subunitEn: 'xu',
+    subunitDivider: 10,
+    decimals: 0, // 越南盾通常不使用小数
+    thousandsSeparator: '.',
+    decimalSeparator: ',',
+    symbolPosition: 'after',
+    abbreviations: [
+      { value: 1e9, suffix: ' tỷ', suffixEn: 'billion', decimals: 2 },    // 十亿
+      { value: 1e6, suffix: ' tr', suffixEn: 'million', decimals: 2 },    // 百万 (triệu 简写)
+      { value: 1e3, suffix: 'k', suffixEn: 'thousand', decimals: 2 },     // 千
+    ]
+  },
+
+  // 马来西亚 - 林吉特
+  'ms-MY': {
+    currency: 'MYR',
+    symbol: 'RM',
+    flag: '🇲🇾',
+    name: 'Ringgit',
+    country: '马来西亚',
+    subunit: 'sen',
+    subunitEn: 'sen',
+    subunitDivider: 100,
+    decimals: 2,
+    thousandsSeparator: ',',
+    decimalSeparator: '.',
+    symbolPosition: 'before',
+    abbreviations: [
+      { value: 1e9, suffix: ' B', suffixEn: 'billion', decimals: 2 },  // Billion
+      { value: 1e6, suffix: ' M', suffixEn: 'million', decimals: 2 },  // Million
+      { value: 1e3, suffix: ' K', suffixEn: 'thousand', decimals: 2 },  // Thousand
+    ]
+  },
+
+  // 菲律宾 - 比索
+  'fil-PH': {
+    currency: 'PHP',
+    symbol: '₱',
+    flag: '🇵🇭',
+    name: 'Peso',
+    country: '菲律宾',
+    subunit: 'sentimo',
+    subunitEn: 'sentimo',
+    subunitDivider: 100,
+    decimals: 2,
+    thousandsSeparator: ',',
+    decimalSeparator: '.',
+    symbolPosition: 'before',
+    abbreviations: [
+      { value: 1e9, suffix: ' B', suffixEn: 'billion', decimals: 2 },
+      { value: 1e6, suffix: ' M', suffixEn: 'million', decimals: 2 },
+      { value: 1e3, suffix: ' K', suffixEn: 'thousand', decimals: 2 },
+    ]
+  },
+};
+
+/**
+ * 货币格式化类
+ */
+class CurrencyFormatter {
+  constructor(locale = 'en-US') {
+    this.locale = locale;
+    this.config = CURRENCY_CONFIGS[locale] || CURRENCY_CONFIGS['en-US'];
+  }
+
+  /**
+   * 设置区域
+   */
+  setLocale(locale) {
+    this.locale = locale;
+    this.config = CURRENCY_CONFIGS[locale] || CURRENCY_CONFIGS['en-US'];
+    return this;
+  }
+
+  /**
+   * 格式化数字 - 添加千位分隔符
+   */
+  formatNumber(value, decimals = this.config.decimals) {
+    if (isNaN(value) || value === null || value === undefined) {
+      return '0';
+    }
+
+    const fixed = Number(value).toFixed(decimals);
+    const [integerPart, decimalPart] = fixed.split('.');
+
+    // 添加千位分隔符
+    const formattedInteger = integerPart.replace(
+      /\B(?=(\d{3})+(?!\d))/g,
+      this.config.thousandsSeparator
+    );
+
+    if (decimals > 0 && decimalPart) {
+      return `${formattedInteger}${this.config.decimalSeparator}${decimalPart}`;
+    }
+
+    return formattedInteger;
+  }
+
+  /**
+   * 格式化货币 - 完整显示
+   */
+  format(value, options = {}) {
+    const {
+      showSymbol = true,
+      decimals = this.config.decimals,
+      showSubunit = false,
+      useCode = false
+    } = options;
+
+    const formattedNumber = this.formatNumber(value, decimals);
+
+    if (!showSymbol) {
+      return formattedNumber;
+    }
+
+    // 使用货币代码或符号
+    const displaySymbol = useCode ? this.config.currency : this.config.symbol;
+
+    // 根据符号位置返回格式化结果
+    if (this.config.symbolPosition === 'before') {
+      return useCode ? `${displaySymbol} ${formattedNumber}` : `${displaySymbol}${formattedNumber}`;
+    } else {
+      return `${formattedNumber} ${displaySymbol}`;
+    }
+  }
+
+  /**
+   * 格式化货币 - 大额缩写
+   * 保持可读性：小数点后保留指定位数
+   */
+  formatAbbreviated(value, options = {}) {
+    const {
+      showSymbol = true,
+      forceDecimals = true,
+      useCode = false
+    } = options;
+
+    if (isNaN(value) || value === null || value === undefined) {
+      return this.format(0, options);
+    }
+
+    const absValue = Math.abs(value);
+    const sign = value < 0 ? '-' : '';
+
+    // 查找合适的缩写级别
+    const abbreviation = this.config.abbreviations.find(
+      abbr => absValue >= abbr.value
+    );
+
+    if (!abbreviation) {
+      // 如果金额不够大，使用标准格式
+      return this.format(value, options);
+    }
+
+    // 计算缩写后的数值
+    const abbreviated = absValue / abbreviation.value;
+    const decimals = forceDecimals ? abbreviation.decimals : 0;
+
+    // 格式化缩写数值，保留精度
+    const formattedValue = abbreviated.toFixed(decimals);
+
+    // 移除尾随的零
+    const cleanValue = forceDecimals
+      ? formattedValue
+      : parseFloat(formattedValue).toString();
+
+    // 添加千位分隔符（如果缩写后的整数部分仍然很大）
+    const [intPart, decPart] = cleanValue.split('.');
+    const formattedInt = intPart.replace(
+      /\B(?=(\d{3})+(?!\d))/g,
+      this.config.thousandsSeparator
+    );
+
+    const finalValue = decPart
+      ? `${formattedInt}${this.config.decimalSeparator}${decPart}`
+      : formattedInt;
+
+    const result = `${sign}${finalValue}${abbreviation.suffix}`;
+
+    if (!showSymbol) {
+      return result;
+    }
+
+    // 使用货币代码或符号
+    const displaySymbol = useCode ? this.config.currency : this.config.symbol;
+
+    // 根据符号位置返回格式化结果
+    if (this.config.symbolPosition === 'before') {
+      return useCode ? `${displaySymbol} ${result}` : `${displaySymbol}${result}`;
+    } else {
+      return `${result} ${displaySymbol}`;
+    }
+  }
+
+  /**
+   * 智能格式化 - 根据金额大小自动选择格式
+   */
+  formatSmart(value, options = {}) {
+    const { threshold = 10000 } = options;
+    const absValue = Math.abs(value);
+
+    // 小额使用完整格式，大额使用缩写
+    if (absValue < threshold) {
+      return this.format(value, options);
+    } else {
+      return this.formatAbbreviated(value, options);
+    }
+  }
+
+  /**
+   * 格式化为辅币单位(如:分、cents)
+   * 支持二级辅币单位(如人民币的角和分)
+   */
+  formatSubunit(value, options = {}) {
+    const { showSymbol = true, useSecondary = false } = options;
+
+    if (!this.config.subunit) {
+      return this.format(value, options);
+    }
+
+    // 如果有二级辅币单位(如角)且用户指定使用
+    if (useSecondary && this.config.secondarySubunit) {
+      const secondaryValue = Math.round(value * this.config.secondarySubunitDivider);
+      const formatted = this.formatNumber(secondaryValue, 0);
+
+      if (!showSymbol) {
+        return formatted;
+      }
+
+      return `${formatted} ${this.config.secondarySubunit}`;
+    }
+
+    // 默认使用主辅币单位(如分)
+    const subunitValue = Math.round(value * this.config.subunitDivider);
+    const formatted = this.formatNumber(subunitValue, 0);
+
+    if (!showSymbol) {
+      return formatted;
+    }
+
+    return `${formatted} ${this.config.subunit}`;
+  }
+
+  /**
+   * 格式化为完整辅币表示(如:1.23元 = 1元2角3分)
+   */
+  formatSubunitFull(value) {
+    if (!this.config.subunit) {
+      return this.format(value);
+    }
+
+    const integerPart = Math.floor(value);
+    const decimalPart = value - integerPart;
+
+    // 没有小数部分,直接返回
+    if (decimalPart === 0) {
+      return this.format(integerPart);
+    }
+
+    let result = '';
+
+    // 整数部分
+    if (integerPart > 0) {
+      result += this.format(integerPart);
+    }
+
+    // 如果有二级辅币单位(如角)
+    if (this.config.secondarySubunit && this.config.secondarySubunitDivider) {
+      const totalCents = Math.round(decimalPart * this.config.subunitDivider);
+      const secondaryUnits = Math.floor(totalCents / (this.config.subunitDivider / this.config.secondarySubunitDivider));
+      const primaryUnits = totalCents % (this.config.subunitDivider / this.config.secondarySubunitDivider);
+
+      if (secondaryUnits > 0) {
+        result += (result ? ' ' : '') + `${secondaryUnits}${this.config.secondarySubunit}`;
+      }
+      if (primaryUnits > 0) {
+        result += (result ? ' ' : '') + `${primaryUnits}${this.config.subunit}`;
+      }
+    } else {
+      // 只有主辅币单位(如 cents)
+      const subunitValue = Math.round(decimalPart * this.config.subunitDivider);
+      if (subunitValue > 0) {
+        result += (result ? ' ' : '') + `${subunitValue}${this.config.subunit}`;
+      }
+    }
+
+    return result || this.format(0);
+  }
+
+  /**
+   * 获取货币信息
+   */
+  getCurrencyInfo() {
+    return {
+      locale: this.locale,
+      currency: this.config.currency,
+      symbol: this.config.symbol,
+      name: this.config.name,
+      country: this.config.country,
+      subunit: this.config.subunit,
+      secondarySubunit: this.config.secondarySubunit,
+      decimals: this.config.decimals
+    };
+  }
+
+  /**
+   * 获取所有支持的区域列表
+   */
+  static getSupportedLocales() {
+    return Object.keys(CURRENCY_CONFIGS).map(locale => ({
+      locale,
+      currency: CURRENCY_CONFIGS[locale].currency,
+      symbol: CURRENCY_CONFIGS[locale].symbol,
+      flag: CURRENCY_CONFIGS[locale].flag,
+      name: CURRENCY_CONFIGS[locale].name,
+      country: CURRENCY_CONFIGS[locale].country
+    }));
+  }
+}
+
+// 导出默认实例和类
+
+
+
+
+
+// 应用逻辑
+const app = {
+  selectedLocale: 'en-US',
+  copiedIndex: null,
+  formatter: null,
+  supportedLocales: CurrencyFormatter.getSupportedLocales(),
+  testAmounts: [
+    { value: 123.45, label: '百位' },
+    { value: 1234.56, label: '千位' },
+    { value: 12345.67, label: '万位' },
+    { value: 123456.78, label: '十万位' },
+    { value: 1234567.89, label: '百万位' },
+    { value: 12345678.90, label: '千万位' },
+    { value: 123456789.01, label: '亿位' },
+    { value: 1234567890.12, label: '十亿位' }
+  ],
+
+  init() {
+    this.formatter = new CurrencyFormatter(this.selectedLocale);
+    this.render();
+    this.attachEvents();
+  },
+
+  setLocale(locale) {
+    this.selectedLocale = locale;
+    this.formatter = new CurrencyFormatter(locale);
+    this.render();
+    this.attachEvents();
+  },
+
+  copyToClipboard(text, index) {
+    navigator.clipboard.writeText(text);
+    this.copiedIndex = index;
+    this.render();
+    this.attachEvents();
+    setTimeout(() => {
+      this.copiedIndex = null;
+      this.render();
+      this.attachEvents();
+    }, 2000);
+  },
+
+  render() {
+    const currencyInfo = this.formatter.getCurrencyInfo();
+    const localeData = this.supportedLocales.find(l => l.locale === this.selectedLocale);
+
+    document.getElementById('app').innerHTML = `
+      <div class="revenue-view">
+        <div class="page-header">
+          <div class="header-content">
+            <h1>收益查看本地化</h1>
+            <p class="subtitle">全球货币格式化展示 - 支持18种主要货币的标准格式和大额缩写</p>
+          </div>
+        </div>
+
+        <div class="currency-selector-card">
+          <div class="card-header">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
+            <h2>选择货币</h2>
+          </div>
+          <div class="currency-grid">
+            ${this.supportedLocales.map(locale => `
+              <button class="currency-card ${this.selectedLocale === locale.locale ? 'active' : ''}" data-locale="${locale.locale}">
+                <div class="currency-flag">${locale.flag}</div>
+                <div class="currency-info">
+                  <div class="currency-country">${locale.country}</div>
+                  <div class="currency-name">${locale.name}</div>
+                  <div class="currency-code">${locale.currency}</div>
+                </div>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="info-card">
+          <div class="card-header">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="1" x2="12" y2="23"></line>
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+            </svg>
+            <h2>${currencyInfo.country} - ${localeData?.name} 格式规范</h2>
+          </div>
+          <div class="card-content">
+            <div class="info-grid">
+              <div class="info-item-box">
+                <span class="info-label">国家/地区</span>
+                <span class="info-value">${currencyInfo.country}</span>
+              </div>
+              <div class="info-item-box">
+                <span class="info-label">货币名称</span>
+                <span class="info-value">${localeData?.name}</span>
+              </div>
+              <div class="info-item-box">
+                <span class="info-label">货币代码</span>
+                <span class="info-value">${currencyInfo.currency}</span>
+              </div>
+              <div class="info-item-box">
+                <span class="info-label">货币符号</span>
+                <span class="info-value currency-symbol">${currencyInfo.symbol}</span>
+              </div>
+              <div class="info-item-box">
+                <span class="info-label">小数位数</span>
+                <span class="info-value">${currencyInfo.decimals} 位</span>
+              </div>
+              ${currencyInfo.subunit ? `
+                <div class="info-item-box">
+                  <span class="info-label">辅币单位</span>
+                  <span class="info-value">
+                    ${currencyInfo.secondarySubunit ? `${currencyInfo.secondarySubunit} / ${currencyInfo.subunit}` : currencyInfo.subunit}
+                  </span>
+                </div>
+              ` : ''}
+            </div>
+
+            ${this.formatter.config.abbreviations && this.formatter.config.abbreviations.length > 0 ? `
+              <div class="conversion-section">
+                <h3 class="section-title">大额缩写进位关系</h3>
+                <div class="conversion-list">
+                  ${this.formatter.config.abbreviations.slice().reverse().map(abbr => `
+                    <div class="conversion-item">
+                      <span class="conversion-unit">
+                        ${abbr.suffix.trim()}
+                        ${abbr.suffixEn ? `<span class="unit-en"> (${abbr.suffixEn})</span>` : ''}
+                      </span>
+                      <span class="conversion-arrow">→</span>
+                      <span class="conversion-value">
+                        ${abbr.value >= 1e12 ? '1,000,000,000,000' :
+                          abbr.value >= 1e9 ? '1,000,000,000' :
+                          abbr.value >= 1e8 ? '100,000,000' :
+                          abbr.value >= 1e7 ? '10,000,000' :
+                          abbr.value >= 1e6 ? '1,000,000' :
+                          abbr.value >= 1e5 ? '100,000' :
+                          abbr.value >= 1e4 ? '10,000' : '1,000'}
+                      </span>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+            ${currencyInfo.subunit ? `
+              <div class="conversion-section">
+                <h3 class="section-title">辅币单位进位关系</h3>
+                <div class="conversion-list">
+                  ${currencyInfo.secondarySubunit ? `
+                    <div class="conversion-item">
+                      <span class="conversion-unit">1 主币</span>
+                      <span class="conversion-arrow">=</span>
+                      <span class="conversion-value">
+                        ${this.formatter.config.secondarySubunitDivider} ${currencyInfo.secondarySubunit}
+                        ${this.formatter.config.secondarySubunitEn ? `<span class="unit-en"> (${this.formatter.config.secondarySubunitEn})</span>` : ''}
+                      </span>
+                    </div>
+                    <div class="conversion-item">
+                      <span class="conversion-unit">
+                        1 ${currencyInfo.secondarySubunit}
+                        ${this.formatter.config.secondarySubunitEn ? `<span class="unit-en"> (${this.formatter.config.secondarySubunitEn})</span>` : ''}
+                      </span>
+                      <span class="conversion-arrow">=</span>
+                      <span class="conversion-value">
+                        ${this.formatter.config.subunitDivider / this.formatter.config.secondarySubunitDivider} ${currencyInfo.subunit}
+                        ${this.formatter.config.subunitEn ? `<span class="unit-en"> (${this.formatter.config.subunitEn})</span>` : ''}
+                      </span>
+                    </div>
+                  ` : ''}
+                  <div class="conversion-item">
+                    <span class="conversion-unit">1 主币</span>
+                    <span class="conversion-arrow">=</span>
+                    <span class="conversion-value">
+                      ${this.formatter.config.subunitDivider} ${currencyInfo.subunit}
+                      ${this.formatter.config.subunitEn ? `<span class="unit-en"> (${this.formatter.config.subunitEn})</span>` : ''}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <div class="format-table-card">
+          <div class="card-header">
+            <h2>格式化对照表</h2>
+            <span class="hint">点击金额可复制</span>
+          </div>
+          <div class="table-container">
+            <table class="format-table">
+              <thead>
+                <tr>
+                  <th>数量级</th>
+                  <th>原始金额</th>
+                  <th>完整格式</th>
+                  <th>大额缩写</th>
+                  ${currencyInfo.subunit ? '<th>辅币格式</th>' : ''}
+                </tr>
+              </thead>
+              <tbody>
+                ${this.testAmounts.map((amount, index) => {
+                  const fullFormat = this.formatter.format(amount.value, { useCode: true });
+                  const abbrevFormat = this.formatter.formatAbbreviated(amount.value, { useCode: true });
+                  const subunitFormat = currencyInfo.subunit
+                    ? (currencyInfo.secondarySubunit
+                        ? this.formatter.formatSubunitFull(amount.value)
+                        : this.formatter.formatSubunit(amount.value))
+                    : null;
+
+                  return `
+                    <tr>
+                      <td class="amount-level">${amount.label}</td>
+                      <td class="raw-amount">${amount.value.toLocaleString('en-US')}</td>
+                      <td class="formatted-amount">
+                        <button class="copy-btn" data-copy="${fullFormat}" data-index="full-${index}">
+                          <span class="amount-text">${fullFormat}</span>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="copy-icon ${this.copiedIndex === `full-${index}` ? 'success' : ''}">
+                            ${this.copiedIndex === `full-${index}`
+                              ? '<polyline points="20 6 9 17 4 12"></polyline>'
+                              : '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>'}
+                          </svg>
+                        </button>
+                      </td>
+                      <td class="abbreviated-amount">
+                        <button class="copy-btn" data-copy="${abbrevFormat}" data-index="abbrev-${index}">
+                          <span class="amount-text highlight">${abbrevFormat}</span>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="copy-icon ${this.copiedIndex === `abbrev-${index}` ? 'success' : ''}">
+                            ${this.copiedIndex === `abbrev-${index}`
+                              ? '<polyline points="20 6 9 17 4 12"></polyline>'
+                              : '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>'}
+                          </svg>
+                        </button>
+                      </td>
+                      ${currencyInfo.subunit ? `
+                        <td class="subunit-amount">
+                          <button class="copy-btn" data-copy="${subunitFormat}" data-index="subunit-${index}">
+                            <span class="amount-text">${subunitFormat}</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="copy-icon ${this.copiedIndex === `subunit-${index}` ? 'success' : ''}">
+                              ${this.copiedIndex === `subunit-${index}`
+                                ? '<polyline points="20 6 9 17 4 12"></polyline>'
+                                : '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>'}
+                            </svg>
+                          </button>
+                        </td>
+                      ` : ''}
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="usage-card">
+          <div class="card-header">
+            <h2>格式化说明</h2>
+          </div>
+          <div class="card-content">
+            <div class="usage-grid">
+              <div class="usage-item">
+                <h3>完整格式</h3>
+                <ul>
+                  <li>显示完整的金额数值</li>
+                  <li>包含千位分隔符</li>
+                  <li>保留指定的小数位数</li>
+                  <li>适用于需要精确显示的场景</li>
+                </ul>
+              </div>
+              <div class="usage-item">
+                <h3>大额缩写</h3>
+                <ul>
+                  <li>自动选择合适的单位缩写</li>
+                  <li>保留2位小数确保精度</li>
+                  <li>符合各国本地化习惯</li>
+                  <li>适用于统计图表和概览</li>
+                </ul>
+              </div>
+              <div class="usage-item">
+                <h3>缩写规则</h3>
+                <ul>
+                  <li><strong>美国/英国</strong>: K(千) · M(百万) · B(十亿) · T(万亿)</li>
+                  <li><strong>印度</strong>: K(千) · L(十万) · Cr(千万)</li>
+                  <li><strong>泰国</strong>: k(千) · L(百万) · พันล้าน(十亿)</li>
+                  <li><strong>越南</strong>: k(千) · tr(百万) · tỷ(十亿)</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  attachEvents() {
+    // 货币选择事件
+    document.querySelectorAll('.currency-card').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const locale = e.currentTarget.getAttribute('data-locale');
+        this.setLocale(locale);
+      });
+    });
+
+    // 复制按钮事件
+    document.querySelectorAll('.copy-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const text = e.currentTarget.getAttribute('data-copy');
+        const index = e.currentTarget.getAttribute('data-index');
+        this.copyToClipboard(text, index);
+      });
+    });
+  }
+};
+
+// 启动应用
+document.addEventListener('DOMContentLoaded', () => {
+  app.init();
+});
+  </script>
+</body>
+</html>

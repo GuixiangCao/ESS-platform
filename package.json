@@ -1,0 +1,33 @@
+{
+  "name": "ess-platform",
+  "version": "1.0.0",
+  "description": "ESS Platform - Enterprise Scheduling System",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "dev": "npm run dev --workspaces",
+    "build": "npm run build --workspaces",
+    "backend": "cd backend && npm run dev",
+    "frontend": "cd frontend && npm run dev",
+    "test": "npm run test --workspaces",
+    "lint": "npm run lint --workspaces"
+  },
+  "keywords": [
+    "scheduling",
+    "enterprise",
+    "project-management"
+  ],
+  "author": "GitHub Copilot",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0"
+  },
+  "dependencies": {
+    "csv-parser": "^3.2.0"
+  }
+}

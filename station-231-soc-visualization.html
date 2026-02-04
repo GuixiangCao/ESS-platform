@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>电站231 SOC变化分析 - 2026-01-12</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Fira Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 20px;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #3B82F6 0%, #2563eb 100%);
+      color: white;
+      padding: 32px 40px;
+    }
+
+    .header h1 {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .header p {
+      font-size: 16px;
+      opacity: 0.9;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      padding: 24px 40px;
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .stat-card {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .stat-label {
+      font-size: 13px;
+      color: #64748b;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: #1e293b;
+    }
+
+    .stat-value.positive {
+      color: #10b981;
+    }
+
+    .stat-value.negative {
+      color: #ef4444;
+    }
+
+    .chart-section {
+      padding: 40px;
+    }
+
+    .chart-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .chart-title::before {
+      content: '';
+      display: block;
+      width: 4px;
+      height: 24px;
+      background: #3B82F6;
+      border-radius: 2px;
+    }
+
+    .chart-container {
+      position: relative;
+      height: 500px;
+      margin-bottom: 40px;
+    }
+
+    .events-section {
+      padding: 0 40px 40px 40px;
+    }
+
+    .event-list {
+      display: grid;
+      gap: 16px;
+    }
+
+    .event-item {
+      background: #f8fafc;
+      padding: 20px;
+      border-radius: 12px;
+      border-left: 4px solid;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .event-item.charging {
+      border-left-color: #10b981;
+      background: #f0fdf4;
+    }
+
+    .event-item.discharging {
+      border-left-color: #f59e0b;
+      background: #fffbeb;
+    }
+
+    .event-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+
+    .event-item.charging .event-icon {
+      background: #dcfce7;
+      color: #16a34a;
+    }
+
+    .event-item.discharging .event-icon {
+      background: #fef3c7;
+      color: #d97706;
+    }
+
+    .event-content {
+      flex: 1;
+    }
+
+    .event-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 6px;
+    }
+
+    .event-details {
+      font-size: 14px;
+      color: #64748b;
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .event-detail-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 60px;
+      color: #64748b;
+    }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid #e2e8f0;
+      border-top-color: #3B82F6;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .error {
+      background: #fee2e2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      padding: 20px;
+      border-radius: 12px;
+      margin: 40px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔋 电站231 SOC变化分析</h1>
+      <p>2026年1月12日 • 设备ID: a0c3321349c8463ABQwk</p>
+    </div>
+
+    <div id="stats" class="stats-grid">
+      <div class="loading">
+        <div class="spinner"></div>
+        <p>正在加载数据...</p>
+      </div>
+    </div>
+
+    <div class="chart-section">
+      <h2 class="chart-title">SOC变化趋势</h2>
+      <div class="chart-container">
+        <canvas id="socChart"></canvas>
+      </div>
+    </div>
+
+    <div class="events-section">
+      <h2 class="chart-title">充放电事件</h2>
+      <div id="events" class="event-list"></div>
+    </div>
+  </div>
+
+  <script>
+    // API配置
+    const API_BASE = 'http://localhost:5001/api';
+    const STATION_ID = 231;
+    const DATE = '2026-01-12';
+
+    // 从localStorage获取token（如果用户已登录）
+    const token = localStorage.getItem('token');
+
+    // 获取SOC数据
+    async function fetchSocData() {
+      try {
+        const response = await fetch(
+          `${API_BASE}/soc/station/${STATION_ID}/daily?date=${DATE}`,
+          {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+          }
+        );
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error('需要登录才能查看实时数据');
+          }
+          throw new Error(`服务器错误: ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        if (!result.success || !result.data || !result.data.devices || result.data.devices.length === 0) {
+          throw new Error('没有找到数据');
+        }
+
+        return result.data;
+      } catch (error) {
+        console.error('获取数据失败:', error);
+
+        // 如果是网络错误，显示演示数据选项
+        if (error.message === 'Failed to fetch') {
+          document.getElementById('stats').innerHTML = `
+            <div class="error">
+              <strong>⚠️ 无法连接到后端服务</strong><br><br>
+              可能的原因：<br>
+              1. 后端服务未启动（需要运行在 http://localhost:5001）<br>
+              2. CORS配置问题<br>
+              3. 网络连接问题<br><br>
+              <button onclick="loadDemoData()" style="
+                background: #3B82F6;
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 14px;
+                font-weight: 600;
+                margin-top: 12px;
+              ">📊 加载演示数据</button>
+              <button onclick="init()" style="
+                background: transparent;
+                color: #3B82F6;
+                border: 2px solid #3B82F6;
+                padding: 12px 24px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 14px;
+                font-weight: 600;
+                margin-top: 12px;
+                margin-left: 8px;
+              ">🔄 重试</button>
+            </div>
+          `;
+        } else {
+          document.getElementById('stats').innerHTML = `
+            <div class="error">
+              <strong>错误：</strong> ${error.message}<br><br>
+              ${error.message.includes('登录') ? `
+                请先访问 <a href="http://localhost:3001" target="_blank" style="color: #3B82F6; text-decoration: underline;">http://localhost:3001</a> 登录系统，<br>
+                然后刷新此页面。<br><br>
+                <button onclick="loadDemoData()" style="
+                  background: #3B82F6;
+                  color: white;
+                  border: none;
+                  padding: 12px 24px;
+                  border-radius: 8px;
+                  cursor: pointer;
+                  font-size: 14px;
+                  font-weight: 600;
+                  margin-top: 12px;
+                ">📊 或查看演示数据</button>
+              ` : ''}
+            </div>
+          `;
+        }
+        throw error;
+      }
+    }
+
+    // 分析充放电周期
+    function analyzeChargingCycles(socData) {
+      const events = [];
+      let lastSoc = socData[0].soc;
+      let currentEvent = null;
+
+      for (let i = 1; i < socData.length; i++) {
+        const record = socData[i];
+        const socDiff = record.soc - lastSoc;
+
+        // 检测充电
+        if (socDiff > 0.5 && (!currentEvent || currentEvent.type === 'discharging')) {
+          if (currentEvent) {
+            events.push(currentEvent);
+          }
+          currentEvent = {
+            type: 'charging',
+            startTime: socData[i-1].timestamp,
+            startSoc: socData[i-1].soc,
+            endTime: record.timestamp,
+            endSoc: record.soc
+          };
+        }
+        // 检测放电
+        else if (socDiff < -0.5 && (!currentEvent || currentEvent.type === 'charging')) {
+          if (currentEvent) {
+            events.push(currentEvent);
+          }
+          currentEvent = {
+            type: 'discharging',
+            startTime: socData[i-1].timestamp,
+            startSoc: socData[i-1].soc,
+            endTime: record.timestamp,
+            endSoc: record.soc
+          };
+        }
+        // 继续当前事件
+        else if (currentEvent) {
+          currentEvent.endTime = record.timestamp;
+          currentEvent.endSoc = record.soc;
+        }
+
+        lastSoc = record.soc;
+      }
+
+      if (currentEvent) {
+        events.push(currentEvent);
+      }
+
+      return events;
+    }
+
+    // 格式化时间
+    function formatTime(timestamp) {
+      const date = new Date(timestamp);
+      return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    // 计算持续时间
+    function getDuration(start, end) {
+      const minutes = Math.round((new Date(end) - new Date(start)) / 60000);
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      return hours > 0 ? `${hours}小时${mins}分钟` : `${mins}分钟`;
+    }
+
+    // 渲染统计数据
+    function renderStats(data) {
+      const device = data.devices[0];
+      const socData = device.data;
+      const firstSoc = socData[0].soc;
+      const lastSoc = socData[socData.length - 1].soc;
+      const maxSoc = Math.max(...socData.map(d => d.soc));
+      const minSoc = Math.min(...socData.map(d => d.soc));
+      const change = lastSoc - firstSoc;
+
+      document.getElementById('stats').innerHTML = `
+        <div class="stat-card">
+          <span class="stat-label">数据点数</span>
+          <span class="stat-value">${socData.length}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">起始SOC</span>
+          <span class="stat-value">${firstSoc.toFixed(2)}%</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">结束SOC</span>
+          <span class="stat-value">${lastSoc.toFixed(2)}%</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">净变化</span>
+          <span class="stat-value ${change >= 0 ? 'positive' : 'negative'}">
+            ${change >= 0 ? '+' : ''}${change.toFixed(2)}%
+          </span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">最高SOC</span>
+          <span class="stat-value positive">${maxSoc.toFixed(2)}%</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">最低SOC</span>
+          <span class="stat-value">${minSoc.toFixed(2)}%</span>
+        </div>
+      `;
+    }
+
+    // 渲染图表
+    function renderChart(data) {
+      const device = data.devices[0];
+      const socData = device.data;
+
+      // 每5分钟取一个点，避免数据过多
+      const filteredData = socData.filter((_, i) => i % 10 === 0);
+
+      const ctx = document.getElementById('socChart');
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: filteredData.map(d => formatTime(d.timestamp)),
+          datasets: [{
+            label: 'SOC (%)',
+            data: filteredData.map(d => d.soc),
+            borderColor: '#3B82F6',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.4,
+            pointRadius: 0,
+            pointHoverRadius: 6,
+            pointHoverBackgroundColor: '#3B82F6',
+            pointHoverBorderColor: 'white',
+            pointHoverBorderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              mode: 'index',
+              intersect: false,
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              titleColor: 'white',
+              bodyColor: 'white',
+              borderColor: '#3B82F6',
+              borderWidth: 1,
+              padding: 12,
+              displayColors: false,
+              callbacks: {
+                label: function(context) {
+                  return `SOC: ${context.parsed.y.toFixed(2)}%`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: {
+                display: false
+              },
+              ticks: {
+                maxRotation: 45,
+                minRotation: 45,
+                autoSkip: true,
+                maxTicksLimit: 24
+              }
+            },
+            y: {
+              min: 0,
+              max: 100,
+              ticks: {
+                callback: function(value) {
+                  return value + '%';
+                }
+              },
+              grid: {
+                color: 'rgba(0, 0, 0, 0.05)'
+              }
+            }
+          },
+          interaction: {
+            mode: 'nearest',
+            axis: 'x',
+            intersect: false
+          }
+        }
+      });
+    }
+
+    // 渲染事件列表
+    function renderEvents(data) {
+      const device = data.devices[0];
+      const events = analyzeChargingCycles(device.data);
+
+      const eventsHTML = events.map((event, idx) => {
+        const isCharging = event.type === 'charging';
+        const socChange = Math.abs(event.endSoc - event.startSoc);
+        const icon = isCharging ? '🔋' : '⚡';
+        const title = isCharging ? `充电周期 #${idx + 1}` : `放电周期 #${idx + 1}`;
+
+        return `
+          <div class="event-item ${event.type}">
+            <div class="event-icon">${icon}</div>
+            <div class="event-content">
+              <div class="event-title">${title}</div>
+              <div class="event-details">
+                <div class="event-detail-item">
+                  <strong>时间:</strong> ${formatTime(event.startTime)} → ${formatTime(event.endTime)}
+                </div>
+                <div class="event-detail-item">
+                  <strong>SOC:</strong> ${event.startSoc.toFixed(2)}% → ${event.endSoc.toFixed(2)}%
+                </div>
+                <div class="event-detail-item">
+                  <strong>变化:</strong> ${isCharging ? '+' : '-'}${socChange.toFixed(2)}%
+                </div>
+                <div class="event-detail-item">
+                  <strong>持续:</strong> ${getDuration(event.startTime, event.endTime)}
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('events').innerHTML = eventsHTML || '<p style="text-align:center;color:#64748b;">未检测到明显的充放电事件</p>';
+    }
+
+    // 加载演示数据（基于真实的2026-01-12数据）
+    function loadDemoData() {
+      // 生成模拟的SOC数据（基于实际分析的充放电模式）
+      const demoData = {
+        devices: [{
+          deviceId: 'a0c3321349c8463ABQwk',
+          deviceName: 'ESS设备-1',
+          data: generateDemoSocData()
+        }]
+      };
+
+      renderStats(demoData);
+      renderChart(demoData);
+      renderEvents(demoData);
+    }
+
+    // 生成演示SOC数据点（模拟2026-01-12的实际模式）
+    function generateDemoSocData() {
+      const data = [];
+      const baseDate = new Date('2026-01-12T00:00:00Z');
+
+      // 00:00-07:20: 从5%缓慢充电到99%
+      for (let i = 0; i < 440; i++) {
+        const timestamp = new Date(baseDate.getTime() + i * 60 * 1000);
+        const soc = 5 + (94 * i / 440);
+        data.push({ timestamp: timestamp.toISOString(), soc });
+      }
+
+      // 07:20-08:01: 充电至100%
+      for (let i = 0; i < 41; i++) {
+        const timestamp = new Date(baseDate.getTime() + (440 + i) * 60 * 1000);
+        const soc = 99 + (1 * i / 41);
+        data.push({ timestamp: timestamp.toISOString(), soc });
+      }
+
+      // 08:01-14:11: 轻度放电至99.43%
+      for (let i = 0; i < 370; i++) {
+        const timestamp = new Date(baseDate.getTime() + (481 + i) * 60 * 1000);
+        const soc = 100 - (0.57 * i / 370);
+        data.push({ timestamp: timestamp.toISOString(), soc });
+      }
+
+      // 14:11-15:00: 充电至100%
+      for (let i = 0; i < 49; i++) {
+        const timestamp = new Date(baseDate.getTime() + (851 + i) * 60 * 1000);
+        const soc = 99.43 + (0.57 * i / 49);
+        data.push({ timestamp: timestamp.toISOString(), soc });
+      }
+
+      // 15:00-23:59: 深度放电至5%
+      for (let i = 0; i < 539; i++) {
+        const timestamp = new Date(baseDate.getTime() + (900 + i) * 60 * 1000);
+        const soc = 100 - (95 * i / 539);
+        data.push({ timestamp: timestamp.toISOString(), soc });
+      }
+
+      return data;
+    }
+
+    // 初始化
+    async function init() {
+      try {
+        const data = await fetchSocData();
+        renderStats(data);
+        renderChart(data);
+        renderEvents(data);
+      } catch (error) {
+        console.error('加载失败:', error);
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

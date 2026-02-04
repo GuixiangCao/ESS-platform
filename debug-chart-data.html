@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>调试图表数据 - 电站231 1月11日</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      max-width: 1200px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #1a1a1a;
+      margin-bottom: 10px;
+    }
+    .info {
+      color: #666;
+      margin-bottom: 30px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    th {
+      background: #f8f9fa;
+      font-weight: 600;
+      color: #333;
+    }
+    tr:hover {
+      background: #f8f9fa;
+    }
+    .time-col {
+      font-family: 'Courier New', monospace;
+      font-weight: 600;
+      color: #3B82F6;
+    }
+    .soc-col {
+      font-family: 'Courier New', monospace;
+      font-weight: 600;
+    }
+    .highlight {
+      background: #fef3c7 !important;
+    }
+    button {
+      background: #3B82F6;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      margin-right: 10px;
+    }
+    button:hover {
+      background: #2563eb;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    .stat-card {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+    }
+    .stat-label {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 5px;
+    }
+    .stat-value {
+      color: #1a1a1a;
+      font-size: 24px;
+      font-weight: 600;
+    }
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>调试图表数据</h1>
+    <p class="info">电站231 • 2026年01月11日 • 验证时间和SOC对应关系</p>
+
+    <div>
+      <button onclick="loadData()">🔄 加载数据</button>
+      <button onclick="filterByTime()">🔍 只显示10:00-10:59</button>
+      <button onclick="showAll()">📋 显示全部采样点</button>
+    </div>
+
+    <div class="stats" id="stats"></div>
+    <div id="tableContainer"></div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:5001/api';
+    const STATION_ID = 231;
+    const DATE = '2026-01-11';
+    let fullData = [];
+
+    async function getToken() {
+      // 尝试从localStorage获取token
+      let token = localStorage.getItem('token');
+
+      // 如果没有token，自动登录获取
+      if (!token) {
+        try {
+          const loginResponse = await fetch(`${API_BASE}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: 'test@test.com',
+              password: 'test123'
+            })
+          });
+
+          if (!loginResponse.ok) {
+            throw new Error('自动登录失败');
+          }
+
+          const loginData = await loginResponse.json();
+          token = loginData.token;
+          localStorage.setItem('token', token);
+        } catch (error) {
+          throw new Error('无法获取token: ' + error.message);
+        }
+      }
+
+      return token;
+    }
+
+    async function loadData() {
+      try {
+        document.getElementById('tableContainer').innerHTML = '<div class="loading">加载中...</div>';
+
+        // 自动获取token
+        const token = await getToken();
+
+        // 获取数据
+        const response = await fetch(
+          `${API_BASE}/soc/station/${STATION_ID}/daily?date=${DATE}`,
+          {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const result = await response.json();
+        if (!result.success || !result.data.devices || result.data.devices.length === 0) {
+          throw new Error('没有数据');
+        }
+
+        // 处理数据（模拟前端逻辑）
+        const device = result.data.devices[0];
+        fullData = processChartData(device);
+
+        // 显示统计
+        showStats(device, fullData);
+
+        // 显示表格
+        renderTable(fullData);
+
+      } catch (error) {
+        document.getElementById('tableContainer').innerHTML = `
+          <div style="color: red; padding: 20px;">
+            错误: ${error.message}<br><br>
+            请确保：<br>
+            1. 后端运行在 http://localhost:5001<br>
+            2. 测试账户存在（test@test.com / test123）
+          </div>
+        `;
+      }
+    }
+
+    function processChartData(device) {
+      const timeMap = new Map();
+
+      device.data.forEach(point => {
+        const timestamp = new Date(point.timestamp).getTime();
+        if (!timeMap.has(timestamp)) {
+          timeMap.set(timestamp, {
+            timestamp: point.timestamp,
+            timestampMs: timestamp
+          });
+        }
+        timeMap.get(timestamp)[device.deviceId] = point.soc;
+      });
+
+      const dataArray = Array.from(timeMap.values()).sort((a, b) =>
+        a.timestampMs - b.timestampMs
+      );
+
+      // 抽样和时间转换（模拟SocDetailModal.jsx的逻辑）
+      const UTC_OFFSET_MS = 8 * 60 * 60 * 1000;
+      const SAMPLE_INTERVAL = 10;
+
+      return dataArray
+        .map((point, index) => ({
+          ...point,
+          originalIndex: index,
+          sampled: index % SAMPLE_INTERVAL === 0
+        }))
+        .filter(point => point.sampled)
+        .map(point => {
+          const utcDate = new Date(point.timestamp);
+          const localDate = new Date(utcDate.getTime() + UTC_OFFSET_MS);
+          const localHour = String(localDate.getUTCHours()).padStart(2, '0');
+          const localMinute = String(localDate.getUTCMinutes()).padStart(2, '0');
+
+          return {
+            ...point,
+            time: `${localHour}:${localMinute}`,
+            utcTime: utcDate.toISOString(),
+            soc: point[device.deviceId]
+          };
+        });
+    }
+
+    function showStats(device, chartData) {
+      const total = device.data.length;
+      const sampled = chartData.length;
+      const tenOClockData = chartData.filter(p => p.time.startsWith('10:'));
+
+      document.getElementById('stats').innerHTML = `
+        <div class="stat-card">
+          <div class="stat-label">总数据点</div>
+          <div class="stat-value">${total}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">采样后</div>
+          <div class="stat-value">${sampled}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">10:00-10:59</div>
+          <div class="stat-value">${tenOClockData.length}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">10:10的SOC</div>
+          <div class="stat-value">${tenOClockData.find(p => p.time === '10:10')?.soc.toFixed(2) || '未找到'}%</div>
+        </div>
+      `;
+    }
+
+    function renderTable(data) {
+      const html = `
+        <table>
+          <thead>
+            <tr>
+              <th>序号</th>
+              <th>本地时间</th>
+              <th>UTC时间</th>
+              <th>SOC (%)</th>
+              <th>原始索引</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.map((point, idx) => `
+              <tr class="${point.time.startsWith('10:') ? 'highlight' : ''}">
+                <td>${idx + 1}</td>
+                <td class="time-col">${point.time}</td>
+                <td style="font-size: 12px; color: #666;">${point.utcTime}</td>
+                <td class="soc-col">${point.soc.toFixed(2)}%</td>
+                <td style="color: #999; font-size: 12px;">${point.originalIndex}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+      document.getElementById('tableContainer').innerHTML = html;
+    }
+
+    function filterByTime() {
+      if (fullData.length === 0) {
+        alert('请先加载数据');
+        return;
+      }
+      const filtered = fullData.filter(p => p.time.startsWith('10:'));
+      renderTable(filtered);
+    }
+
+    function showAll() {
+      if (fullData.length === 0) {
+        alert('请先加载数据');
+        return;
+      }
+      renderTable(fullData);
+    }
+
+    // 自动加载
+    window.addEventListener('load', () => {
+      loadData();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,171 @@
+.alarm-section {
+  margin-top: 30px;
+  padding: 25px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.alarm-section h3 {
+  margin: 0 0 20px 0;
+  font-size: 20px;
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.alarm-section h4 {
+  margin: 15px 0 10px 0;
+  font-size: 16px;
+  color: #475569;
+  font-weight: 600;
+}
+
+.alarm-summary {
+  display: flex;
+  gap: 30px;
+  margin-bottom: 25px;
+  padding: 15px;
+  background: #f8fafc;
+  border-radius: 6px;
+}
+
+.alarm-summary .summary-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.alarm-summary .label {
+  font-size: 14px;
+  color: #64748b;
+}
+
+.alarm-summary .value {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.alarm-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 30px;
+  margin-bottom: 25px;
+}
+
+.chart-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pie-chart {
+  width: 200px;
+  height: 200px;
+  margin-bottom: 15px;
+}
+
+.pie-chart path {
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.pie-chart path:hover {
+  opacity: 0.8;
+}
+
+.legend {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.legend-label {
+  color: #475569;
+}
+
+.alarm-table {
+  margin-top: 25px;
+}
+
+.alarm-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.alarm-table th {
+  background: #f1f5f9;
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #475569;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.alarm-table td {
+  padding: 12px;
+  border-bottom: 1px solid #e2e8f0;
+  color: #64748b;
+}
+
+.alarm-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.loading,
+.error,
+.no-data {
+  padding: 40px;
+  text-align: center;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.error {
+  color: #ef4444;
+}
+
+.no-data {
+  color: #22c55e;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .alarm-summary {
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .alarm-charts {
+    grid-template-columns: 1fr;
+  }
+
+  .alarm-table {
+    overflow-x: auto;
+  }
+
+  .alarm-table table {
+    font-size: 12px;
+  }
+
+  .alarm-table th,
+  .alarm-table td {
+    padding: 8px;
+  }
+}

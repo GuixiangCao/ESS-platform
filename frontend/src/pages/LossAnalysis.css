@@ -1,0 +1,726 @@
+/* 损失分析容器 */
+.loss-analysis-container {
+  margin-top: var(--space-xl);
+}
+
+.loss-analysis-header {
+  margin-bottom: var(--space-lg);
+}
+
+.loss-analysis-header h2 {
+  margin-bottom: var(--space-sm);
+}
+
+.section-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+/* 收益对比概览卡片 */
+.revenue-summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-lg);
+  margin-bottom: var(--space-xl);
+}
+
+.revenue-summary-card {
+  display: flex;
+  gap: var(--space-md);
+  padding: var(--space-xl);
+  background: var(--surface);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  transition: var(--transition-base);
+}
+
+.revenue-summary-card:hover {
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary-color);
+}
+
+.revenue-summary-card.expected {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(59, 130, 246, 0.02) 100%);
+  border-left: 4px solid #3b82f6;
+}
+
+.revenue-summary-card.actual {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(16, 185, 129, 0.02) 100%);
+  border-left: 4px solid #10b981;
+}
+
+.revenue-summary-card.difference {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(239, 68, 68, 0.02) 100%);
+  border-left: 4px solid #ef4444;
+}
+
+.revenue-summary-card .card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-lg);
+  flex-shrink: 0;
+}
+
+.revenue-summary-card.expected .card-icon {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+}
+
+.revenue-summary-card.actual .card-icon {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+}
+
+.revenue-summary-card.difference .card-icon {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+}
+
+.revenue-summary-card .card-content {
+  flex: 1;
+}
+
+.revenue-summary-card .card-label {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-sm);
+  font-weight: 500;
+}
+
+.revenue-summary-card .card-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: var(--space-sm);
+  font-family: var(--font-mono);
+}
+
+.revenue-summary-card .card-meta {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.achievement-inline {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  margin-left: var(--space-xs);
+}
+
+.achievement-inline.success {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.achievement-inline.warning {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.achievement-inline.danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+/* 损失统计卡片 */
+.loss-stats-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--space-lg);
+  margin-bottom: var(--space-xl);
+}
+
+.loss-stat-card {
+  display: flex;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  background: var(--surface);
+  border: 1px solid var(--outline-variant);
+  border-left: 4px solid transparent;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition-base);
+}
+
+.loss-stat-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.loss-stat-card.total {
+  border-left-color: #ef4444;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(239, 68, 68, 0.02) 100%);
+}
+
+.loss-stat-card .card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-lg);
+  flex-shrink: 0;
+}
+
+.loss-stat-card.total .card-icon {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+}
+
+.loss-stat-card .card-content {
+  flex: 1;
+}
+
+.loss-stat-card .card-label {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-xs);
+}
+
+.loss-stat-card .card-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: var(--space-xs);
+  font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+}
+
+.loss-stat-card .card-meta {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+/* 损失饼图 */
+.loss-pie-chart-section {
+  background: var(--surface);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  margin-bottom: var(--space-xl);
+  box-shadow: var(--shadow-sm);
+}
+
+.loss-pie-chart-section h3 {
+  margin-bottom: var(--space-lg);
+}
+
+.chart-description {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-top: calc(var(--space-md) * -1);
+  margin-bottom: var(--space-lg);
+  line-height: 1.5;
+}
+
+.loss-pie-container {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-lg) 0;
+  min-height: 400px;
+}
+
+/* 损失对比表格 */
+.loss-comparison-section {
+  background: var(--surface);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  box-shadow: var(--shadow-sm);
+}
+
+.loss-comparison-section .section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-lg);
+}
+
+.loss-comparison-section h3 {
+  margin: 0;
+}
+
+.time-view-tabs {
+  display: flex;
+  gap: var(--space-xs);
+  background: var(--surface-variant);
+  padding: 4px;
+  border-radius: var(--radius-md);
+}
+
+.view-tab {
+  padding: 8px 20px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.view-tab:hover {
+  color: var(--text-primary);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.view-tab.active {
+  background: var(--primary);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.loss-table-container {
+  overflow-x: auto;
+}
+
+.loss-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.loss-table thead {
+  background: var(--surface-variant);
+  border-bottom: 2px solid var(--outline);
+}
+
+.loss-table th {
+  padding: var(--space-md) var(--space-lg);
+  text-align: center;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.loss-table th:first-child {
+  text-align: left;
+}
+
+.loss-table th:last-child {
+  text-align: left;
+}
+
+.loss-table tbody tr {
+  border-bottom: 1px solid var(--outline-variant);
+  transition: var(--transition-base);
+}
+
+.loss-table tbody tr:hover {
+  background: var(--surface-variant);
+}
+
+.loss-table tfoot {
+  background: var(--surface-variant);
+  border-top: 2px solid var(--outline);
+  font-weight: 600;
+}
+
+.loss-table tfoot .totals-row {
+  background: linear-gradient(to right, rgba(59, 130, 246, 0.05), rgba(59, 130, 246, 0.02));
+}
+
+.loss-table tfoot .totals-row:hover {
+  background: linear-gradient(to right, rgba(59, 130, 246, 0.08), rgba(59, 130, 246, 0.04));
+}
+
+.loss-table tfoot td {
+  padding: var(--space-lg);
+  color: var(--text-primary);
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+.loss-table tfoot td:first-child {
+  text-align: left;
+  color: var(--primary);
+}
+
+.loss-table td {
+  padding: var(--space-md) var(--space-lg);
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.loss-table td:first-child {
+  text-align: left;
+}
+
+.loss-table td:last-child {
+  text-align: left;
+}
+
+.loss-table .amount {
+  font-weight: 600;
+  font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+  text-align: center;
+}
+
+.loss-table .amount.loss {
+  color: #ef4444;
+}
+
+.achievement-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.achievement-badge.success {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+}
+
+.achievement-badge.warning {
+  background: rgba(234, 179, 8, 0.1);
+  color: #eab308;
+}
+
+.achievement-badge.danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+/* 损失原因展示 */
+.loss-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.loss-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.loss-type-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.loss-amount-small {
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+}
+
+.no-record {
+  color: var(--text-secondary);
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+/* 无数据状态 */
+.no-loss-data {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl) * 2;
+  background: var(--surface);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-lg);
+  color: var(--text-secondary);
+}
+
+.no-loss-data svg {
+  margin-bottom: var(--space-lg);
+  opacity: 0.5;
+}
+
+.no-loss-data p {
+  margin: var(--space-sm) 0;
+}
+
+.no-loss-data .hint {
+  font-size: 0.9rem;
+  opacity: 0.7;
+}
+
+/* 加载状态 */
+.loss-analysis-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl) * 2;
+  gap: var(--space-lg);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .loss-stats-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .pie-chart {
+    flex-direction: column;
+  }
+
+  .loss-table {
+    min-width: 800px;
+  }
+}
+
+/* 查看告警按钮 */
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  align-items: flex-start;
+}
+
+.view-alarm-btn,
+.view-soc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.view-alarm-btn:hover,
+.view-soc-btn:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.view-soc-btn {
+  background: #10b981;
+}
+
+.view-soc-btn:hover {
+  background: #059669;
+}
+
+.view-alarm-btn.small,
+.view-soc-btn.small {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.no-record-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.loss-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+/* 告警条数样式 */
+.alarm-count {
+  text-align: center;
+}
+
+.alarm-count-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+  cursor: default;
+  pointer-events: none;
+}
+
+.alarm-count-badge.has-alarms {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.alarm-count-badge.no-alarms {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+/* 告警损失样式 */
+.alarm-loss {
+  text-align: right;
+}
+
+.alarm-loss-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.05) 100%);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.no-loss {
+  color: var(--text-disabled);
+  font-size: 0.9rem;
+}
+
+/* 告警统计部分 */
+.alarm-stats-section {
+  background: var(--surface);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  margin-top: var(--space-xl);
+  box-shadow: var(--shadow-sm);
+}
+
+.alarm-stats-section h3 {
+  margin-bottom: var(--space-lg);
+  color: var(--text-primary);
+}
+
+.alarm-stats-section h4 {
+  margin-bottom: var(--space-md);
+  font-size: 1rem;
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.alarm-summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-lg);
+  margin-bottom: var(--space-xl);
+}
+
+.alarm-summary-card {
+  padding: var(--space-lg);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(239, 68, 68, 0.02) 100%);
+  border: 1px solid var(--outline-variant);
+  border-left: 3px solid #ef4444;
+  border-radius: var(--radius-lg);
+  text-align: center;
+}
+
+.alarm-summary-card .card-label {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-sm);
+}
+
+.alarm-summary-card .card-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #ef4444;
+  font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+}
+
+.alarm-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+  gap: var(--space-xl);
+}
+
+.alarm-chart-container {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-lg);
+  background: var(--surface-variant);
+  border-radius: var(--radius-lg);
+  min-height: 420px;
+}
+
+.alarm-chart-container h4 {
+  margin-bottom: var(--space-md);
+  font-size: 1rem;
+  color: var(--text-primary);
+  text-align: center;
+}
+
+/* 充放电时长列 */
+.charging-hours,
+.discharging-hours {
+  text-align: center;
+  min-width: 100px;
+}
+
+.hours-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+  transition: var(--transition-base);
+}
+
+.hours-badge.charging {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%);
+  color: #16a34a;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.hours-badge.discharging {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%);
+  color: #2563eb;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.hours-badge.no-data {
+  background: var(--surface-variant);
+  color: var(--text-secondary);
+  border: 1px solid var(--outline-variant);
+  font-weight: 400;
+}
+
+.hours-badge svg {
+  flex-shrink: 0;
+}
+
+.loss-table tr:hover .hours-badge.charging {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(34, 197, 94, 0.08) 100%);
+  box-shadow: 0 2px 4px rgba(34, 197, 94, 0.1);
+}
+
+.loss-table tr:hover .hours-badge.discharging {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.08) 100%);
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
+}
+
+@media (max-width: 768px) {
+  .charging-hours,
+  .discharging-hours {
+    min-width: auto;
+  }
+
+  .hours-badge {
+    font-size: 0.75rem;
+    padding: 3px 8px;
+    gap: 3px;
+  }
+
+  .hours-badge svg {
+    width: 12px;
+    height: 12px;
+  }
+}

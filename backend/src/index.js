@@ -38,6 +38,7 @@ const electricityPriceRoutes = require('./routes/electricityPrices');
 const stationGatewayRoutes = require('./routes/stationGateways');
 const chargingStrategyRoutes = require('./routes/chargingStrategies');
 const socRoutes = require('./routes/soc');
+const unplannedOutageReasonRoutes = require('./routes/unplannedOutageReasons');
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -54,6 +55,7 @@ app.use('/api/electricity-prices', electricityPriceRoutes);
 app.use('/api/station-gateways', stationGatewayRoutes);
 app.use('/api/charging-strategies', chargingStrategyRoutes);
 app.use('/api/soc', socRoutes);
+app.use('/api/unplanned-outage-reasons', unplannedOutageReasonRoutes);
 
 // Health Check
 app.get('/api/health', (req, res) => {

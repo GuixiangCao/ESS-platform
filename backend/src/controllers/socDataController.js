@@ -102,9 +102,15 @@ exports.getCorrectedSOCData = async (req, res) => {
   try {
     const { stationId, date } = req.params;
 
-    const startOfDay = new Date(date + 'T16:00:00.000Z');
-    const endOfDay = new Date(startOfDay);
-    endOfDay.setDate(endOfDay.getDate() + 1);
+    // 将北京时间（UTC+8）的日期转换为UTC时间范围
+    // 例如：北京时间 2025-12-14 00:00:00 = UTC 2025-12-13 16:00:00
+    const [year, month, day] = date.split('-').map(Number);
+    const bjStartOfDay = new Date(year, month - 1, day, 0, 0, 0, 0);
+    const bjEndOfDay = new Date(year, month - 1, day, 23, 59, 59, 999);
+
+    // Date对象在查询时会自动转换为UTC时间
+    const startOfDay = bjStartOfDay;
+    const endOfDay = bjEndOfDay;
 
     const socData = await SocData.find({
       stationId: parseInt(stationId),

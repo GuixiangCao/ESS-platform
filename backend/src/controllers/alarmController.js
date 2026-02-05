@@ -382,38 +382,29 @@ exports.calculateUnplannedOutageLosses = async (req, res) => {
     console.log('生成的日期数组:', dates);
     console.log('日期数量:', dates.length);
 
-    // 2. 查询节假日，筛选出工作日
+    // 2. 查询节假日（用于统计分类，但不排除）
     const holidayMap = await Holiday.checkHolidayDates(dates);
-    const workdays = dates.filter(date => !holidayMap[date]);
 
-    console.log('工作日数量:', workdays.length);
-    console.log('工作日列表:', workdays);
+    console.log('节假日映射结果:', holidayMap);
 
-    if (workdays.length === 0) {
-      console.log('=== 日期范围内没有工作日，返回0 ===');
-      return res.json({
-        success: true,
-        data: {
-          totalUnplannedOutageLoss: 0,
-          workdayCount: 0,
-          noChargingDays: 0,
-          details: []
-        }
-      });
-    }
+    // 3. 对所有日期（包括节假日）分析SOC数据，找出无充放电的日期
+    // 注意：非计划性停机优先级高于节假日，所有无充放电日期都计入
+    const noChargingDays = [];
 
-    // 3. 对每个工作日分析SOC数据，找出无充放电的日期
-    const noChargingWorkdays = [];
-
-    for (const dateStr of workdays) {
-      // 查询该天的SOC数据
-      const dataDate = new Date(dateStr + 'T16:00:00.000Z'); // 匹配数据库存储格式
+    for (const dateStr of dates) {
+      // 将北京时间日期转换为UTC时间范围查询
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const bjStartOfDay = new Date(year, month - 1, day, 0, 0, 0, 0);
+      const bjEndOfDay = new Date(year, month - 1, day, 23, 59, 59, 999);
 
       const socRecords = await SocData.aggregate([
         {
           $match: {
             stationId: parseInt(stationId),
-            dataDate: dataDate
+            timestamp: {
+              $gte: bjStartOfDay,
+              $lte: bjEndOfDay
+            }
           }
         },
         {
@@ -435,18 +426,23 @@ exports.calculateUnplannedOutageLosses = async (req, res) => {
           // 查询该天的完整SOC数据用于绘制曲线
           const socDataPoints = await SocData.find({
             stationId: parseInt(stationId),
-            dataDate: dataDate
+            timestamp: {
+              $gte: bjStartOfDay,
+              $lte: bjEndOfDay
+            }
           })
           .sort({ timestamp: 1 })
           .select('timestamp soc')
           .lean();
 
-          noChargingWorkdays.push({
+          const isHoliday = holidayMap[dateStr];
+          noChargingDays.push({
             date: dateStr,
             minSoc: stats.minSoc,
             maxSoc: stats.maxSoc,
             socRange: socRange,
             dataPoints: stats.dataPoints,
+            isHoliday: isHoliday,
             socData: socDataPoints.map(point => ({
               time: point.timestamp,
               soc: point.soc
@@ -456,27 +452,29 @@ exports.calculateUnplannedOutageLosses = async (req, res) => {
       }
     }
 
-    console.log('无充放电的工作日数量:', noChargingWorkdays.length);
-    console.log('无充放电的工作日:', noChargingWorkdays.map(d => d.date));
+    console.log('无充放电的天数:', noChargingDays.length);
+    console.log('无充放电的日期:', noChargingDays.map(d => d.date));
+    console.log('其中工作日:', noChargingDays.filter(d => !d.isHoliday).length);
+    console.log('其中节假日:', noChargingDays.filter(d => d.isHoliday).length);
 
-    if (noChargingWorkdays.length === 0) {
-      console.log('=== 所有工作日都有正常充放电 ===');
+    if (noChargingDays.length === 0) {
+      console.log('=== 所有日期都有正常充放电 ===');
       return res.json({
         success: true,
         data: {
           totalUnplannedOutageLoss: 0,
-          workdayCount: workdays.length,
+          totalDays: dates.length,
           noChargingDays: 0,
           details: []
         }
       });
     }
 
-    // 4. 查询这些无充放电工作日的收益数据
+    // 4. 查询这些无充放电日期的收益数据
     const revenueRecords = await StationRevenue.find({
       stationId: parseInt(stationId),
       date: {
-        $in: noChargingWorkdays.map(d => new Date(d.date + 'T16:00:00.000Z'))
+        $in: noChargingDays.map(d => new Date(d.date + 'T16:00:00.000Z'))
       }
     }).sort({ date: 1 });
 
@@ -489,7 +487,7 @@ exports.calculateUnplannedOutageLosses = async (req, res) => {
       totalUnplannedOutageLoss += dailyLoss;
 
       const dateKey = record.date.toISOString().split('T')[0];
-      const socInfo = noChargingWorkdays.find(d => d.date === dateKey);
+      const socInfo = noChargingDays.find(d => d.date === dateKey);
 
       return {
         date: record.date,
@@ -499,6 +497,7 @@ exports.calculateUnplannedOutageLosses = async (req, res) => {
         loss: dailyLoss,
         socRange: socInfo ? socInfo.socRange : 0,
         dataPoints: socInfo ? socInfo.dataPoints : 0,
+        isHoliday: socInfo ? socInfo.isHoliday : false,
         socData: socInfo ? socInfo.socData : [] // 添加SOC数据用于绘制曲线
       };
     });
@@ -506,11 +505,16 @@ exports.calculateUnplannedOutageLosses = async (req, res) => {
     console.log('计算出的非计划性停机总损失:', totalUnplannedOutageLoss);
 
     // 6. 返回结果
+    const workdays = dates.filter(date => !holidayMap[date]);
     const result = {
+      stationId: parseInt(stationId),  // 添加 stationId 字段
       totalUnplannedOutageLoss: Math.round(totalUnplannedOutageLoss * 100) / 100,
+      totalDays: dates.length,
       workdayCount: workdays.length,
       noChargingDays: revenueRecords.length,
-      missingDataCount: noChargingWorkdays.length - revenueRecords.length,
+      noChargingWorkdays: lossDetails.filter(d => !d.isHoliday).length,
+      noChargingHolidays: lossDetails.filter(d => d.isHoliday).length,
+      missingDataCount: noChargingDays.length - revenueRecords.length,
       details: lossDetails
     };
 

@@ -51,13 +51,15 @@ async function testSingleAlarm() {
 
     if (result.lossDetails && result.lossDetails.length > 0) {
       console.log('\n📊 时段详情:');
-      console.log('─'.repeat(100));
-      console.log('序号  开始时间              结束时间              时长(h)   类型  功率(kW)  电价   损失(元)');
-      console.log('─'.repeat(100));
+      console.log('─'.repeat(120));
+      console.log('序号  开始时间              结束时间              时长(h)   类型  功率(kW)  当前价  配对价  价差    损失(元)');
+      console.log('─'.repeat(120));
 
       result.lossDetails.forEach((detail, index) => {
         const startStr = detail.startTimeStr || detail.time || '';
         const endStr = detail.endTimeStr || '';
+        const pairedPriceStr = detail.pairedPrice !== null ? detail.pairedPrice.toFixed(2) : 'N/A';
+        const priceDiffStr = detail.priceDifference !== null ? detail.priceDifference.toFixed(2) : 'N/A';
 
         console.log(
           `${(index + 1).toString().padStart(4)}  ` +
@@ -67,11 +69,13 @@ async function testSingleAlarm() {
           `${(detail.ctypeName || '').padEnd(4)}  ` +
           `${detail.power.toString().padStart(8)}  ` +
           `${detail.price.toFixed(2).padStart(6)}  ` +
+          `${pairedPriceStr.padStart(6)}  ` +
+          `${priceDiffStr.padStart(6)}  ` +
           `${detail.calculatedLoss.toFixed(2).padStart(10)}`
         );
       });
 
-      console.log('─'.repeat(100));
+      console.log('─'.repeat(120));
       console.log(`总计: ${result.lossDetails.length} 个时段，合计损失 ¥${result.loss.toFixed(2)}`);
     }
 

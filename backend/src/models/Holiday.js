@@ -83,15 +83,16 @@ holidaySchema.statics.checkHolidayDates = async function(dates) {
 
   // 检查每个日期
   dates.forEach(date => {
-    const dateObj = new Date(date);
-    dateObj.setHours(0, 0, 0, 0);
-    const dateKey = dateObj.toISOString().split('T')[0];
+    // 使用UTC时间创建日期对象，避免本地时区影响
+    const dateObj = new Date(date + 'T00:00:00.000Z');
+    const dateKey = date; // 使用原始日期字符串作为key
+    const utcDateKey = dateObj.toISOString().split('T')[0];
 
-    if (holidayMap.has(dateKey)) {
-      result[dateKey] = holidayMap.get(dateKey);
+    if (holidayMap.has(utcDateKey)) {
+      result[dateKey] = holidayMap.get(utcDateKey);
     } else {
-      // 默认检查是否为周六日
-      const dayOfWeek = dateObj.getDay();
+      // 默认检查是否为周六日（使用UTC日期）
+      const dayOfWeek = dateObj.getUTCDay();
       result[dateKey] = dayOfWeek === 0 || dayOfWeek === 6;
     }
   });

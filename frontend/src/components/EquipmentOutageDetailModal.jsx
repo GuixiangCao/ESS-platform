@@ -63,7 +63,7 @@ const EquipmentOutageDetailModal = ({ isOpen, onClose, alarmData }) => {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content equipment-outage-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>设备停机损失详情</h2>
+          <h2>设备故障停机损失详情</h2>
           <button className="close-btn" onClick={onClose}>
             <X size={20} />
           </button>

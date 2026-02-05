@@ -67,6 +67,169 @@ function findNextChargingSlot(strategy, currentMinute) {
 }
 
 /**
+ * 在策略的timeslots数组中找到指定时刻所在的索引
+ * @param {Object} strategy - 充放电策略对象
+ * @param {Number} currentMinute - 当前时刻（一天中的分钟数）
+ * @returns {Number} 时段索引，未找到返回-1
+ */
+function findSlotIndexInStrategy(strategy, currentMinute) {
+  if (!strategy || !strategy.timeslots) return -1;
+
+  for (let i = 0; i < strategy.timeslots.length; i++) {
+    const slot = strategy.timeslots[i];
+    const startMin = timeToMinutes(slot.stime);
+    const endMin = timeToMinutes(slot.etime);
+
+    if (currentMinute >= startMin && currentMinute < endMin) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+/**
+ * 为充电故障找下一个放电时段
+ * @param {Object} strategy - 当天的充放电策略
+ * @param {Number} currentSlotIndex - 当前时段索引
+ * @param {Date} currentDate - 当前日期（北京时间，仅日期部分）
+ * @param {Number} stationId - 电站ID（用于跨天查询）
+ * @param {Object} priceData - 当天的电价数据对象
+ * @param {String} regionId - 地区代码（用于跨天查询电价）
+ * @returns {Object|null} { price, date, slotInfo } 或 null
+ */
+async function findPairedDischargingSlot(strategy, currentSlotIndex, currentDate, stationId, priceData, regionId = '330000') {
+  const MAX_SEARCH_DAYS = 7;
+
+  // 1. 先在当天策略中向后搜索
+  for (let i = currentSlotIndex + 1; i < strategy.timeslots.length; i++) {
+    const slot = strategy.timeslots[i];
+    if (slot.ctype === 2 && slot.power > 0) {
+      // 找到了放电时段，使用当天的priceData
+      const startMin = timeToMinutes(slot.stime);
+      const price = priceData.getPriceAtTime(startMin);
+      return {
+        price,
+        date: currentDate,
+        slotInfo: { stime: slot.stime, etime: slot.etime, power: slot.power }
+      };
+    }
+  }
+
+  // 2. 当天未找到，查询后续天
+  for (let dayOffset = 1; dayOffset <= MAX_SEARCH_DAYS; dayOffset++) {
+    const nextDate = new Date(currentDate);
+    nextDate.setDate(nextDate.getDate() + dayOffset);
+    nextDate.setHours(0, 0, 0, 0);
+
+    // 查询下一天的策略
+    const nextStrategy = await ChargingStrategy.findOne({
+      stationId,
+      date: nextDate,
+      isActive: true
+    });
+
+    if (!nextStrategy) continue;
+
+    // 查询下一天的电价
+    const nextPriceData = await ElectricityPrice.findPriceByDate(
+      regionId,
+      nextDate,
+      0, 1
+    );
+
+    if (!nextPriceData) continue;
+
+    // 从头搜索下一天的时段
+    for (const slot of nextStrategy.timeslots) {
+      if (slot.ctype === 2 && slot.power > 0) {
+        const startMin = timeToMinutes(slot.stime);
+        const price = nextPriceData.getPriceAtTime(startMin);
+        return {
+          price,
+          date: nextDate,
+          slotInfo: { stime: slot.stime, etime: slot.etime, power: slot.power }
+        };
+      }
+    }
+  }
+
+  // 7天内未找到
+  return null;
+}
+
+/**
+ * 为放电故障找上一个充电时段
+ * @param {Object} strategy - 当天的充放电策略
+ * @param {Number} currentSlotIndex - 当前时段索引
+ * @param {Date} currentDate - 当前日期（北京时间，仅日期部分）
+ * @param {Number} stationId - 电站ID（用于跨天查询）
+ * @param {Object} priceData - 当天的电价数据对象
+ * @param {String} regionId - 地区代码（用于跨天查询电价）
+ * @returns {Object|null} { price, date, slotInfo } 或 null
+ */
+async function findPairedChargingSlot(strategy, currentSlotIndex, currentDate, stationId, priceData, regionId = '330000') {
+  const MAX_SEARCH_DAYS = 7;
+
+  // 1. 先在当天策略中向前搜索
+  for (let i = currentSlotIndex - 1; i >= 0; i--) {
+    const slot = strategy.timeslots[i];
+    if (slot.ctype === 1 && slot.power > 0) {
+      // 找到了充电时段，使用当天的priceData
+      const startMin = timeToMinutes(slot.stime);
+      const price = priceData.getPriceAtTime(startMin);
+      return {
+        price,
+        date: currentDate,
+        slotInfo: { stime: slot.stime, etime: slot.etime, power: slot.power }
+      };
+    }
+  }
+
+  // 2. 当天未找到，查询前几天
+  for (let dayOffset = 1; dayOffset <= MAX_SEARCH_DAYS; dayOffset++) {
+    const prevDate = new Date(currentDate);
+    prevDate.setDate(prevDate.getDate() - dayOffset);
+    prevDate.setHours(0, 0, 0, 0);
+
+    // 查询前一天的策略
+    const prevStrategy = await ChargingStrategy.findOne({
+      stationId,
+      date: prevDate,
+      isActive: true
+    });
+
+    if (!prevStrategy) continue;
+
+    // 查询前一天的电价
+    const prevPriceData = await ElectricityPrice.findPriceByDate(
+      regionId,
+      prevDate,
+      0, 1
+    );
+
+    if (!prevPriceData) continue;
+
+    // 从后向前搜索前一天的时段
+    for (let i = prevStrategy.timeslots.length - 1; i >= 0; i--) {
+      const slot = prevStrategy.timeslots[i];
+      if (slot.ctype === 1 && slot.power > 0) {
+        const startMin = timeToMinutes(slot.stime);
+        const price = prevPriceData.getPriceAtTime(startMin);
+        return {
+          price,
+          date: prevDate,
+          slotInfo: { stime: slot.stime, etime: slot.etime, power: slot.power }
+        };
+      }
+    }
+  }
+
+  // 7天内未找到
+  return null;
+}
+
+/**
  * 获取电价时段结束时间
  */
 function getPriceSlotEnd(priceData, currentMinute) {
@@ -87,9 +250,11 @@ function getPriceSlotEnd(priceData, currentMinute) {
  * @param {Date} endTime - 告警结束时间（UTC）
  * @param {Object} strategy - 充放电策略
  * @param {Object} priceData - 电价数据
+ * @param {Number} stationId - 电站ID（用于跨天查询）
+ * @param {String} regionId - 地区代码（用于跨天查询电价）
  * @returns {Array} 拆分后的时段数组
  */
-function splitAlarmIntoTimeslots(startTime, endTime, strategy, priceData) {
+async function splitAlarmIntoTimeslots(startTime, endTime, strategy, priceData, stationId, regionId = '330000') {
   const UTC_OFFSET_MS = 8 * 60 * 60 * 1000;
   const EXCLUDE_START = 17 * 60; // 17:00
   const EXCLUDE_END = 24 * 60;   // 23:59
@@ -199,7 +364,7 @@ function splitAlarmIntoTimeslots(startTime, endTime, strategy, priceData) {
       // 获取该时段的电价
       const price = priceData.getPriceAtTime(currentMinute);
 
-      timeslots.push({
+      const slot = {
         startTime: new Date(currentTime),
         endTime: new Date(segmentEndTime),
         startMinute: currentMinute,
@@ -210,7 +375,57 @@ function splitAlarmIntoTimeslots(startTime, endTime, strategy, priceData) {
         ctype: powerInfo.ctype,
         ctypeName: powerInfo.ctype === 1 ? '充电' : '放电',
         date: new Date(currentYear, currentMonth, currentDay)
-      });
+      };
+
+      // 查找配对时段并计算价差（新增逻辑）
+      const slotIndex = findSlotIndexInStrategy(strategy, currentMinute);
+
+      if (slot.ctype === 1) {
+        // 充电故障：找下一个放电时段
+        const paired = await findPairedDischargingSlot(
+          strategy,
+          slotIndex,
+          slot.date,
+          stationId,
+          priceData,
+          regionId
+        );
+
+        if (paired) {
+          slot.pairedPrice = paired.price;
+          slot.priceDifference = paired.price - slot.price;
+          slot.pairedSlotInfo = paired.slotInfo;
+        } else {
+          slot.priceDifference = null;
+        }
+      } else if (slot.ctype === 2) {
+        // 放电故障：找上一个充电时段
+        const paired = await findPairedChargingSlot(
+          strategy,
+          slotIndex,
+          slot.date,
+          stationId,
+          priceData,
+          regionId
+        );
+
+        if (paired) {
+          slot.pairedPrice = paired.price;
+          slot.priceDifference = slot.price - paired.price;
+          slot.pairedSlotInfo = paired.slotInfo;
+        } else {
+          slot.priceDifference = null;
+        }
+      }
+
+      // 计算套利损失
+      if (slot.priceDifference !== null) {
+        slot.arbitrageLoss = slot.durationHours * slot.power * slot.priceDifference;
+      } else {
+        slot.arbitrageLoss = null;
+      }
+
+      timeslots.push(slot);
     }
 
     // 移动到下一个时段
@@ -569,11 +784,13 @@ async function calculateAlarmLoss(alarm, regionId = '330000', userType = 0, volt
 
     // 使用时段拆分算法计算损失
     // 将告警时间段按电价区间、充放电周期、日期边界进行拆分
-    const timeslots = splitAlarmIntoTimeslots(
+    const timeslots = await splitAlarmIntoTimeslots(
       startTime,
       endTime,
       strategies[0],
-      priceData
+      priceData,
+      stationId,
+      regionId
     );
 
     // 如果没有有效时段（全部在排除时段或非充放电周期）
@@ -598,7 +815,11 @@ async function calculateAlarmLoss(alarm, regionId = '330000', userType = 0, volt
     let timeLoss = 0;
 
     timeslots.forEach(slot => {
-      const slotLoss = slot.durationHours * slot.power * slot.price;
+      // 使用套利损失，如果没有配对时段则损失为0
+      const slotLoss = slot.arbitrageLoss !== null && slot.arbitrageLoss !== undefined
+        ? slot.arbitrageLoss
+        : 0;
+
       totalLoss += slotLoss;
       timeLoss += slotLoss;
 
@@ -616,6 +837,8 @@ async function calculateAlarmLoss(alarm, regionId = '330000', userType = 0, volt
         price: slot.price,
         ctype: slot.ctype,
         ctypeName: slot.ctypeName,
+        pairedPrice: slot.pairedPrice || null,        // 新增：配对电价
+        priceDifference: slot.priceDifference || null, // 新增：价差
         calculatedLoss: Math.round(slotLoss * 100) / 100
       });
     });
@@ -663,7 +886,7 @@ async function calculateAlarmLoss(alarm, regionId = '330000', userType = 0, volt
       lossDetails: lossDetails,
       socTargetDetails: socTargetDetails,
       timeslotCount: timeslots.length, // 拆分的时段数量
-      calculationNote: `损失计算使用时段拆分算法：将告警时间段按电价区间、充放电周期、日期边界自动拆分为${timeslots.length}个时段，每个时段使用对应的功率和电价单独计算损失后汇总。自动排除17:00-23:59:59时段和非充放电周期。此方法确保跨天、跨电价区间的告警损失计算准确。`
+      calculationNote: `损失计算使用价差套利模型：充电故障损失 = (下一个放电价 - 当前充电价) × 功率 × 时长；放电故障损失 = (当前放电价 - 上一个充电价) × 功率 × 时长。将告警按电价区间、充放电周期、日期边界拆分为${timeslots.length}个时段，每个时段自动匹配配对的充/放电时段（可跨天，最多7天）。无法找到配对时段时，该时段损失为0。自动排除17:00-23:59:59时段和非充放电周期。`
     };
 
   } catch (error) {
@@ -744,7 +967,8 @@ async function calculateStationAlarmLosses(
     // 第二步：按网关和日期分组，合并时间重叠的告警来计算实际总损失
     const groupKey = (alarm) => {
       const dateKey = new Date(alarm.startTime).toISOString().split('T')[0];
-      const gatewayId = alarm.device || 'unknown';
+      // 使用网关设备ID进行分组，同一网关下的所有设备告警会合并去重
+      const gatewayId = alarm.gatewayDeviceId || alarm.device || 'unknown';
       return `${dateKey}_${gatewayId}`;
     };
 

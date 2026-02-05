@@ -9,6 +9,7 @@ const AlarmModal = ({ isOpen, onClose, stationId, date }) => {
   const [alarms, setAlarms] = useState(null);
   const [alarmLosses, setAlarmLosses] = useState({}); // 存储告警损失数据
   const [alarmDetails, setAlarmDetails] = useState({}); // 存储告警详细计算信息
+  const [totalLoss, setTotalLoss] = useState(0); // 存储总损失（已去重）
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -52,6 +53,9 @@ const AlarmModal = ({ isOpen, onClose, stationId, date }) => {
             });
 
             if (lossResponse.success && lossResponse.data && lossResponse.data.alarms) {
+              // 保存总损失（已去重）
+              setTotalLoss(lossResponse.data.totalLoss || 0);
+
               // 创建告警ID到损失的映射
               const lossMap = {};
               const detailsMap = {};
@@ -59,7 +63,9 @@ const AlarmModal = ({ isOpen, onClose, stationId, date }) => {
                 lossMap[alarm.alarmId] = alarm.loss || 0;
                 detailsMap[alarm.alarmId] = {
                   durationHours: alarm.durationHours || 0,
-                  lossDetails: alarm.lossDetails || []
+                  lossDetails: alarm.lossDetails || [],
+                  socTargetDetails: alarm.socTargetDetails,
+                  calculationNote: alarm.calculationNote
                 };
               });
               setAlarmLosses(lossMap);
@@ -149,7 +155,7 @@ const AlarmModal = ({ isOpen, onClose, stationId, date }) => {
                     {alarms.totalDurationFormatted && (
                       <span className="total-duration">总影响时长: {alarms.totalDurationFormatted}</span>
                     )}
-                    {Object.keys(alarmLosses).length > 0 && (
+                    {totalLoss > 0 && (
                       <span className="total-loss" style={{
                         color: '#ef4444',
                         fontWeight: 600
@@ -158,7 +164,11 @@ const AlarmModal = ({ isOpen, onClose, stationId, date }) => {
                           style: 'currency',
                           currency: 'CNY',
                           minimumFractionDigits: 2
-                        }).format(Object.values(alarmLosses).reduce((sum, loss) => sum + loss, 0))}
+                        }).format(totalLoss)} <span style={{
+                          fontSize: '0.75rem',
+                          color: 'var(--text-secondary)',
+                          fontWeight: 400
+                        }}>(已去重)</span>
                       </span>
                     )}
                   </div>
@@ -293,7 +303,7 @@ const AlarmModal = ({ isOpen, onClose, stationId, date }) => {
                                           }} />
                                           <div style={{ flex: 1 }}>
                                             <div style={{ fontWeight: 500, marginBottom: '0.5rem' }}>
-                                              计算详情:
+                                              损失计算详情:
                                             </div>
                                             {(() => {
                                               const details = alarmDetails[alarm.alarmId];
@@ -301,54 +311,195 @@ const AlarmModal = ({ isOpen, onClose, stationId, date }) => {
 
                                               // 如果有详细信息，显示实际参数
                                               if (lossDetails.length > 0) {
-                                                // 计算平均功率和平均电价
-                                                const avgPower = (lossDetails.reduce((sum, d) => sum + d.power, 0) / lossDetails.length).toFixed(2);
-                                                const avgPrice = (lossDetails.reduce((sum, d) => sum + d.price, 0) / lossDetails.length).toFixed(4);
+                                                // 检查是否有价差信息（新算法）
+                                                const hasPriceDiff = lossDetails.some(d => d.priceDifference !== null && d.priceDifference !== undefined);
                                                 const loss = alarmLosses[alarm.alarmId].toFixed(2);
 
-                                                return (
-                                                  <>
-                                                    <div style={{
-                                                      fontFamily: 'monospace',
-                                                      fontSize: '0.85rem',
-                                                      backgroundColor: 'var(--bg-secondary)',
-                                                      padding: '0.5rem',
-                                                      borderRadius: '4px',
-                                                      marginBottom: '0.5rem'
-                                                    }}>
-                                                      <div style={{ marginBottom: '0.25rem' }}>
-                                                        损失 = <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{details.durationHours} 小时</span> × <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{avgPower} kW</span> × <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{avgPrice} 元/kWh</span>
+                                                if (hasPriceDiff) {
+                                                  // 新算法：价差套利模型
+                                                  const avgPower = (lossDetails.reduce((sum, d) => sum + d.power, 0) / lossDetails.length).toFixed(2);
+                                                  const avgPriceDiff = (lossDetails
+                                                    .filter(d => d.priceDifference !== null)
+                                                    .reduce((sum, d) => sum + Math.abs(d.priceDifference), 0) /
+                                                    lossDetails.filter(d => d.priceDifference !== null).length
+                                                  ).toFixed(4);
+
+                                                  return (
+                                                    <>
+                                                      <div style={{
+                                                        fontFamily: 'monospace',
+                                                        fontSize: '0.85rem',
+                                                        backgroundColor: 'var(--bg-secondary)',
+                                                        padding: '0.5rem',
+                                                        borderRadius: '4px',
+                                                        marginBottom: '0.5rem'
+                                                      }}>
+                                                        <div style={{ marginBottom: '0.25rem' }}>
+                                                          总损失 = <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{details.durationHours.toFixed(4)} 小时</span> × <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{avgPower} kW</span> × <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{avgPriceDiff} 元/kWh</span> (平均价差)
+                                                        </div>
+                                                        <div style={{
+                                                          paddingTop: '0.25rem',
+                                                          borderTop: '1px dashed var(--border)',
+                                                          color: '#ef4444',
+                                                          fontWeight: 600
+                                                        }}>
+                                                          = ¥{loss}
+                                                        </div>
+                                                      </div>
+
+                                                      {/* 时段拆分详情 */}
+                                                      {lossDetails.length > 1 && (
+                                                        <div style={{
+                                                          marginTop: '0.75rem',
+                                                          padding: '0.5rem',
+                                                          backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                                                          borderRadius: '4px',
+                                                          border: '1px solid rgba(59, 130, 246, 0.2)'
+                                                        }}>
+                                                          <div style={{
+                                                            fontWeight: 600,
+                                                            color: 'var(--accent)',
+                                                            marginBottom: '0.5rem',
+                                                            fontSize: '0.8rem'
+                                                          }}>
+                                                            ⚡ 告警跨越 {lossDetails.length} 个充放电时段：
+                                                          </div>
+                                                          {lossDetails.map((slot, idx) => (
+                                                            <div key={idx} style={{
+                                                              padding: '0.5rem',
+                                                              marginBottom: idx < lossDetails.length - 1 ? '0.5rem' : 0,
+                                                              backgroundColor: 'var(--bg-primary)',
+                                                              borderRadius: '3px',
+                                                              border: '1px solid var(--border)',
+                                                              fontSize: '0.75rem'
+                                                            }}>
+                                                              <div style={{
+                                                                display: 'flex',
+                                                                justifyContent: 'space-between',
+                                                                alignItems: 'center',
+                                                                marginBottom: '0.25rem'
+                                                              }}>
+                                                                <span style={{
+                                                                  fontWeight: 600,
+                                                                  color: 'var(--text-primary)'
+                                                                }}>
+                                                                  时段 {idx + 1}
+                                                                </span>
+                                                                <span style={{
+                                                                  padding: '0.1rem 0.4rem',
+                                                                  borderRadius: '3px',
+                                                                  backgroundColor: slot.ctype === 1 ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                                                  color: slot.ctype === 1 ? '#10b981' : '#ef4444',
+                                                                  fontWeight: 600,
+                                                                  fontSize: '0.7rem'
+                                                                }}>
+                                                                  {slot.ctypeName}
+                                                                </span>
+                                                              </div>
+                                                              <div style={{
+                                                                fontFamily: 'monospace',
+                                                                color: 'var(--text-secondary)',
+                                                                lineHeight: '1.5'
+                                                              }}>
+                                                                <div>📅 {slot.startTimeStr} ~ {slot.endTimeStr.split(' ')[1]}</div>
+                                                                <div>⏱️ 时长: {slot.durationHours.toFixed(4)} 小时</div>
+                                                                <div>⚡ 功率: {slot.power} kW</div>
+                                                                <div>💰 当前电价: {slot.price.toFixed(4)} 元/kWh</div>
+                                                                {slot.pairedPrice !== null && (
+                                                                  <>
+                                                                    <div>🔗 配对电价: {slot.pairedPrice.toFixed(4)} 元/kWh</div>
+                                                                    <div>📊 价差: {slot.priceDifference.toFixed(4)} 元/kWh</div>
+                                                                  </>
+                                                                )}
+                                                                <div style={{
+                                                                  marginTop: '0.25rem',
+                                                                  paddingTop: '0.25rem',
+                                                                  borderTop: '1px dashed var(--border)',
+                                                                  color: slot.calculatedLoss > 0 ? '#ef4444' : 'var(--text-secondary)',
+                                                                  fontWeight: 600
+                                                                }}>
+                                                                  💸 时段损失: ¥{slot.calculatedLoss.toFixed(2)}
+                                                                </div>
+                                                              </div>
+                                                            </div>
+                                                          ))}
+                                                        </div>
+                                                      )}
+
+                                                      <div style={{
+                                                        fontSize: '0.75rem',
+                                                        color: 'var(--text-tertiary)',
+                                                        lineHeight: '1.5',
+                                                        paddingLeft: '0.5rem',
+                                                        borderLeft: '2px solid var(--accent)',
+                                                        marginTop: '0.75rem'
+                                                      }}>
+                                                        <div style={{ fontWeight: 500, marginBottom: '0.25rem', color: 'var(--text-secondary)' }}>
+                                                          使用价差套利模型：
+                                                        </div>
+                                                        • <strong>充电故障</strong>：损失 = (下一个放电价 - 当前充电价) × 功率 × 时长<br/>
+                                                        • <strong>放电故障</strong>：损失 = (当前放电价 - 上一个充电价) × 功率 × 时长<br/>
+                                                        • 告警按电价区间、充放电周期、日期边界自动拆分<br/>
+                                                        • 自动跨天匹配配对时段（最多7天）<br/>
+                                                        • 排除17:00-23:59:59时段
+                                                      </div>
+                                                    </>
+                                                  );
+                                                } else {
+                                                  // 旧算法：简单电价计算
+                                                  const avgPower = (lossDetails.reduce((sum, d) => sum + d.power, 0) / lossDetails.length).toFixed(2);
+                                                  const avgPrice = (lossDetails.reduce((sum, d) => sum + d.price, 0) / lossDetails.length).toFixed(4);
+
+                                                  return (
+                                                    <>
+                                                      <div style={{
+                                                        fontFamily: 'monospace',
+                                                        fontSize: '0.85rem',
+                                                        backgroundColor: 'var(--bg-secondary)',
+                                                        padding: '0.5rem',
+                                                        borderRadius: '4px',
+                                                        marginBottom: '0.5rem'
+                                                      }}>
+                                                        <div style={{ marginBottom: '0.25rem' }}>
+                                                          损失 = <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{details.durationHours} 小时</span> × <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{avgPower} kW</span> × <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{avgPrice} 元/kWh</span>
+                                                        </div>
+                                                        <div style={{
+                                                          paddingTop: '0.25rem',
+                                                          borderTop: '1px dashed var(--border)',
+                                                          color: '#ef4444',
+                                                          fontWeight: 600
+                                                        }}>
+                                                          = ¥{loss}
+                                                        </div>
                                                       </div>
                                                       <div style={{
-                                                        paddingTop: '0.25rem',
-                                                        borderTop: '1px dashed var(--border)',
-                                                        color: '#ef4444',
-                                                        fontWeight: 600
+                                                        fontSize: '0.75rem',
+                                                        color: 'var(--text-tertiary)',
+                                                        lineHeight: '1.4'
                                                       }}>
-                                                        = ¥{loss}
+                                                        • 仅计算充电/放电周期内的告警<br/>
+                                                        • 排除17:00-23:59:59时段
                                                       </div>
-                                                    </div>
-                                                    <div style={{
-                                                      fontSize: '0.75rem',
-                                                      color: 'var(--text-tertiary)',
-                                                      lineHeight: '1.4'
-                                                    }}>
-                                                      • 仅计算充电/放电周期内的告警<br/>
-                                                      • 排除17:00-23:59:59时段
-                                                    </div>
-                                                  </>
-                                                );
+                                                    </>
+                                                  );
+                                                }
                                               } else {
                                                 // 如果没有详细信息，显示通用公式
                                                 return (
                                                   <>
-                                                    <div>
-                                                      损失 = 时长(小时) × 功率(kW) × 电价(元/kWh)
+                                                    <div style={{
+                                                      fontSize: '0.85rem',
+                                                      marginBottom: '0.5rem',
+                                                      color: 'var(--text-primary)'
+                                                    }}>
+                                                      <strong>价差套利损失模型：</strong>
                                                     </div>
-                                                    <div style={{ marginTop: '0.25rem', fontSize: '0.75rem' }}>
-                                                      • 仅计算充电/放电周期内的告警
+                                                    <div style={{ fontSize: '0.8rem', lineHeight: '1.6' }}>
+                                                      • <strong>充电故障</strong>：(下一个放电价 - 当前充电价) × 功率 × 时长<br/>
+                                                      • <strong>放电故障</strong>：(当前放电价 - 上一个充电价) × 功率 × 时长
                                                     </div>
-                                                    <div style={{ fontSize: '0.75rem' }}>
+                                                    <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
+                                                      • 自动跨天匹配配对时段（最多7天）<br/>
                                                       • 排除17:00-23:59:59时段
                                                     </div>
                                                   </>

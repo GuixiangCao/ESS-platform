@@ -22,6 +22,23 @@
   border-radius: 4px;
 }
 
+/* 停机原因统计饼图区域 */
+.reason-chart-section {
+  padding: 1.5rem;
+  margin: 1rem 1.5rem 0;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.reason-chart-title {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+
 .info-banner p {
   margin: 0;
   font-size: 0.9375rem;
@@ -120,6 +137,222 @@
   font-size: 0.875rem;
 }
 
+/* 停机原因编辑区域 */
+.reason-edit-section {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-color);
+}
+
+/* 编辑表单 */
+.reason-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.form-row {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 160px;
+}
+
+.form-group.flex-grow {
+  flex: 1;
+}
+
+.form-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* 原因类型下拉框 */
+.reason-select {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  transition: var(--transition-base);
+  cursor: pointer;
+}
+
+.reason-select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.reason-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 备注输入框 */
+.reason-note-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  transition: var(--transition-base);
+}
+
+.reason-note-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.reason-note-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.reason-note-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* 表单操作按钮 */
+.form-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-start;
+}
+
+/* 查看状态 */
+.reason-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.reason-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.reason-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.reason-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.reason-type-badge {
+  display: inline-block;
+  padding: 0.25rem 0.625rem;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.reason-note {
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.reason-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+/* 图标按钮 */
+.btn-icon {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.btn-icon:hover {
+  background-color: var(--bg-hover);
+}
+
+.btn-icon:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 编辑按钮 */
+.btn-edit {
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+
+.btn-edit:hover {
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+/* 保存按钮 */
+.btn-save {
+  color: var(--success);
+  border: 1px solid var(--success);
+}
+
+.btn-save:hover {
+  background-color: rgba(16, 185, 129, 0.1);
+}
+
+/* 取消按钮 */
+.btn-cancel {
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.btn-cancel:hover {
+  background-color: var(--bg-hover);
+}
+
+/* 历史按钮 */
+.btn-history {
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.btn-history:hover {
+  background-color: var(--bg-hover);
+}
+
+/* 损失金额高亮 */
+.loss-amount {
+  color: var(--error);
+  font-weight: 600;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .info-banner {
@@ -140,5 +373,27 @@
     width: fit-content;
     margin-left: 0;
     margin-top: 0.5rem;
+  }
+
+  .form-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .form-group {
+    min-width: 100%;
+  }
+
+  .reason-display {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .reason-actions {
+    align-self: flex-start;
+  }
+
+  .form-actions {
+    flex-wrap: wrap;
   }
 }

@@ -31,3 +31,7 @@ coverage/
 dist/
 build/
 .next/
+
+# Large files and archives
+*.zip
+26.01.27.zip

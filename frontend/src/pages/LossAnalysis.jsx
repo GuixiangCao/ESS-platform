@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { AlertTriangle, Zap, Cloud, TrendingDown, TrendingUp, DollarSign, Calendar, LineChart, ChevronDown, ChevronUp } from 'lucide-react';
-import axios from 'axios';
+import api from '../services/api';
 import AlarmModal from '../components/AlarmModal';
 import MonthlyAlarmModal from '../components/MonthlyAlarmModal';
 import AlarmPieChart from '../components/AlarmPieChart';
@@ -9,9 +9,15 @@ import LossBreakdownPieChart from '../components/LossBreakdownPieChart';
 import SocDetailModal from '../components/SocDetailModal';
 import EquipmentOutageDetailModal from '../components/EquipmentOutageDetailModal';
 import UnplannedOutageDetailModal from '../components/UnplannedOutageDetailModal';
+import StrategyDeviationDetailModal from '../components/StrategyDeviationDetailModal';
 import { getDailyChargingStats } from '../services/chargingStrategyService';
-import { calculateStationLosses, getHolidayLosses, getUnplannedOutageLosses } from '../services/alarmLossService';
+import { calculateStationLosses, getHolidayLosses, getUnplannedOutageLosses, getStrategyDeviationLosses } from '../services/alarmLossService';
+import { getPowerLimitationLosses } from '../services/powerLimitationLossService';
 import './LossAnalysis.css';
+
+// 默认日期范围常量
+const DEFAULT_START_DATE = '2025-09-01';
+const DEFAULT_END_DATE = '2026-01-26';
 
 export default function LossAnalysis({ stationId, stationData }) {
   const [lossStats, setLossStats] = useState(null);
@@ -21,78 +27,181 @@ export default function LossAnalysis({ stationId, stationData }) {
   const [alarmLossData, setAlarmLossData] = useState({}); // 告警损失数据
   const [holidayLossData, setHolidayLossData] = useState(null); // 节假日损失数据
   const [unplannedOutageLossData, setUnplannedOutageLossData] = useState(null); // 非计划性停机损失数据
+  const [powerLimitationLossData, setPowerLimitationLossData] = useState(null); // 功率受限损失数据
+  const [strategyDeviationLossData, setStrategyDeviationLossData] = useState(null); // 策略偏差损失数据
   const [allAlarms, setAllAlarms] = useState([]); // 所有告警详细列表
   const [loading, setLoading] = useState(true);
+  const [loadingAlarmDetails, setLoadingAlarmDetails] = useState(false); // 告警明细加载状态
+  const [alarmDetailsLoaded, setAlarmDetailsLoaded] = useState(false); // 告警明细是否已加载
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAlarmModal, setShowAlarmModal] = useState(false);
   const [showMonthlyAlarmModal, setShowMonthlyAlarmModal] = useState(false);
   const [showSocModal, setShowSocModal] = useState(false);
   const [showEquipmentOutageModal, setShowEquipmentOutageModal] = useState(false);
   const [showUnplannedOutageModal, setShowUnplannedOutageModal] = useState(false);
+  const [showStrategyDeviationModal, setShowStrategyDeviationModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [timeView, setTimeView] = useState('daily'); // 'daily' or 'monthly'
   const [showAlarmDetails, setShowAlarmDetails] = useState(false); // 控制告警明细表格的展开/收起
 
-  // Debug: log alarmStats whenever it changes
-  useEffect(() => {
-    console.log('=== alarmStats state changed:', alarmStats);
-  }, [alarmStats]);
+  // 日期范围选择器状态
+  const [startDate, setStartDate] = useState(DEFAULT_START_DATE);
+  const [endDate, setEndDate] = useState(DEFAULT_END_DATE);
+  const [tempStartDate, setTempStartDate] = useState(DEFAULT_START_DATE);
+  const [tempEndDate, setTempEndDate] = useState(DEFAULT_END_DATE);
 
-  useEffect(() => {
-    if (stationId && stationData) {
-      fetchLossData();
+  // 🚀 防止React StrictMode双重调用的守卫
+  const isLoadingRef = useRef(false);
+
+  // 🚀 性能优化：使用 useMemo 缓存过滤和排序后的告警数据
+  const sortedAlarms = useMemo(() => {
+    return allAlarms
+      .filter(alarm => alarm.loss > 0)
+      .sort((a, b) => b.loss - a.loss);
+  }, [allAlarms]);
+
+  // 🚀 性能优化：使用 useMemo 缓存告警损失汇总计算
+  const alarmTotals = useMemo(() => {
+    return {
+      timeLoss: allAlarms.reduce((sum, a) => sum + (a.timeLoss || 0), 0),
+      socTargetLoss: allAlarms.reduce((sum, a) => sum + (a.socTargetLoss || 0), 0),
+      totalLoss: allAlarms.reduce((sum, a) => sum + (a.loss || 0), 0)
+    };
+  }, [allAlarms]);
+
+  // 🚀 性能优化：懒加载告警明细（只在用户展开时才加载）
+  const fetchAlarmDetails = useCallback(async () => {
+    // 防止重复加载
+    if (alarmDetailsLoaded || !lossComparison.length) return;
+
+    setLoadingAlarmDetails(true);
+    try {
+      // 为每一天获取告警详情
+      const alarmsPromises = lossComparison.map(async (day) => {
+        const dateObj = new Date(day.date);
+        const year = dateObj.getFullYear();
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const dayStr = String(dateObj.getDate()).padStart(2, '0');
+        const formattedDate = `${year}-${month}-${dayStr}`;
+
+        try {
+          const lossResponse = await calculateStationLosses(stationId, {
+            startDate: formattedDate,
+            endDate: formattedDate
+          });
+
+          if (lossResponse.success && lossResponse.data) {
+            return lossResponse.data.alarms || [];
+          }
+        } catch (error) {
+          console.error('获取告警详情失败:', error);
+        }
+        return [];
+      });
+
+      // 并行执行所有请求
+      const alarmsArrays = await Promise.all(alarmsPromises);
+      const allAlarmsArray = alarmsArrays.flat();
+      setAllAlarms(allAlarmsArray);
+      setAlarmDetailsLoaded(true);
+    } catch (error) {
+      console.error('获取告警明细失败:', error);
+    } finally {
+      setLoadingAlarmDetails(false);
     }
-  }, [stationId, stationData]);
+  }, [stationId, lossComparison, alarmDetailsLoaded]);
+
+  // 🚀 性能优化：使用 useCallback 缓存事件处理器
+  const handleToggleAlarmDetails = useCallback(async () => {
+    const willShow = !showAlarmDetails;
+    setShowAlarmDetails(willShow);
+
+    // 如果是展开且尚未加载明细，则加载
+    if (willShow && !alarmDetailsLoaded) {
+      await fetchAlarmDetails();
+    }
+  }, [showAlarmDetails, alarmDetailsLoaded, fetchAlarmDetails]);
 
   const fetchLossData = async () => {
+    // 🔍 性能监控：开始计时
+    const perfStart = performance.now();
+    console.log('🚀 [性能监控] 开始加载损失分析数据', new Date().toLocaleTimeString());
+
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
 
-      // 获取损失统计
-      const statsResponse = await axios.get(
-        `/api/revenue/station/${stationId}/loss-stats`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      // 🚀 性能优化：并行获取初始数据（每个请求单独计时）
+      const stats_start = performance.now();
+      const statsPromise = api.get(
+        `/revenue/station/${stationId}/loss-stats`,
+        { params: { startDate, endDate } }
+      ).then(res => {
+        console.log(`  ├─ 📊 损失统计API (loss-stats): ${(performance.now() - stats_start).toFixed(0)}ms`);
+        return res;
+      });
 
-      // 获取收益与损失对比
-      const comparisonResponse = await axios.get(
-        `/api/revenue/station/${stationId}/loss-comparison`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const comparison_start = performance.now();
+      const comparisonPromise = api.get(
+        `/revenue/station/${stationId}/loss-comparison`,
+        { params: { startDate, endDate } }
+      ).then(res => {
+        console.log(`  ├─ 📈 收益对比API (loss-comparison): ${(performance.now() - comparison_start).toFixed(0)}ms`);
+        return res;
+      });
 
+      const charging_start = performance.now();
+      const chargingPromise = getDailyChargingStats({
+        stationId,
+        limit: 1000
+      }).then(res => {
+        console.log(`  └─ ⚡ 充放电统计API (charging-stats): ${(performance.now() - charging_start).toFixed(0)}ms`);
+        return res;
+      }).catch(err => {
+        console.log(`  └─ ⚡ 充放电统计API (charging-stats): ${(performance.now() - charging_start).toFixed(0)}ms (失败)`);
+        console.error('获取充放电统计失败:', err);
+        return { success: false, data: [] };
+      });
+
+      const [statsResponse, comparisonResponse, chargingResponse] = await Promise.all([
+        statsPromise,
+        comparisonPromise,
+        chargingPromise
+      ]);
+
+      // 🔍 性能监控：初始数据请求完成
+      const phase1Time = performance.now() - perfStart;
+      console.log(`⏱️  [性能监控] 阶段1完成（初始并行请求）: ${phase1Time.toFixed(0)}ms`, {
+        请求数: 3,
+        内容: ['loss-stats', 'loss-comparison', 'charging-stats']
+      });
+
+      // 处理损失统计数据
       if (statsResponse.data.success) {
         setLossStats(statsResponse.data.data);
       }
 
+      // 处理充放电统计数据
+      if (chargingResponse.success) {
+        const chargingMap = {};
+        chargingResponse.data.forEach(stat => {
+          const dateKey = new Date(stat.date).toISOString().split('T')[0];
+          if (!chargingMap[dateKey]) {
+            chargingMap[dateKey] = [];
+          }
+          chargingMap[dateKey].push(stat);
+        });
+        setChargingStats(chargingMap);
+      }
+
+      // 处理收益对比数据
       if (comparisonResponse.data.success) {
         const comparisonData = comparisonResponse.data.data;
 
-        // 获取充放电统计数据
-        try {
-          const chargingResponse = await getDailyChargingStats({
-            stationId,
-            limit: 1000 // 获取足够多的数据
-          });
+        console.log(`\n🔍 [阶段2] 开始每日告警循环，共${comparisonData.length}天数据`);
+        const phase2Start = performance.now();
 
-          if (chargingResponse.success) {
-            // 创建一个映射，key为日期字符串
-            const chargingMap = {};
-            chargingResponse.data.forEach(stat => {
-              const dateKey = new Date(stat.date).toISOString().split('T')[0];
-              if (!chargingMap[dateKey]) {
-                chargingMap[dateKey] = [];
-              }
-              chargingMap[dateKey].push(stat);
-            });
-            setChargingStats(chargingMap);
-          }
-        } catch (chargingError) {
-          console.error('获取充放电统计失败:', chargingError);
-        }
-
-        // 为每一天获取告警数量和告警损失
+        // 为每一天获取告警数量和告警损失（并行优化）
         const dataWithAlarmInfo = await Promise.all(
           comparisonData.map(async (day) => {
             try {
@@ -103,135 +212,252 @@ export default function LossAnalysis({ stationId, stationData }) {
               const dayStr = String(dateObj.getDate()).padStart(2, '0');
               const formattedDate = `${year}-${month}-${dayStr}`;
 
-              const alarmResponse = await fetch(
-                `http://localhost:5001/api/alarms/station/${stationId}/daily?date=${formattedDate}`
-              );
+              // 🚀 性能优化：并行执行两个请求
+              const [alarmResponse, lossResponse] = await Promise.all([
+                api.get(`/alarms/station/${stationId}/daily`, { params: { date: formattedDate } })
+                  .then(res => res.data)
+                  .catch(() => null),
+                calculateStationLosses(stationId, {
+                  startDate: formattedDate,
+                  endDate: formattedDate
+                }).catch(() => null)
+              ]);
 
               let alarmCount = 0;
               let alarmLoss = 0;
-              let alarmDetails = []; // 保存告警详细列表
 
-              if (alarmResponse.ok) {
-                const alarmResult = await alarmResponse.json();
-                alarmCount = alarmResult.success ? alarmResult.data.totalCount : 0;
+              // 处理告警计数响应
+              if (alarmResponse && alarmResponse.success) {
+                alarmCount = alarmResponse.data.totalCount || 0;
               }
 
-              // 计算该天的告警损失（只计算当天）
-              try {
-                const lossResponse = await calculateStationLosses(stationId, {
-                  startDate: formattedDate,
-                  endDate: formattedDate
-                });
-
-                if (lossResponse.success && lossResponse.data) {
-                  alarmLoss = lossResponse.data.totalLoss || 0;
-                  alarmDetails = lossResponse.data.alarms || []; // 保存告警详细数据
-                }
-              } catch (lossError) {
-                console.error('计算告警损失失败:', lossError);
+              // 处理告警损失响应
+              if (lossResponse && lossResponse.success && lossResponse.data) {
+                alarmLoss = lossResponse.data.totalLoss || 0;
+                // 不再获取 alarmDetails，等待懒加载
               }
 
               return {
                 ...day,
                 alarmCount,
-                alarmLoss,
-                alarmDetails // 添加告警详细列表
+                alarmLoss
               };
             } catch (error) {
               console.error('获取告警信息失败:', error);
+              return { ...day, alarmCount: 0, alarmLoss: 0 };
             }
-            return { ...day, alarmCount: 0, alarmLoss: 0, alarmDetails: [] };
           })
         );
 
+        // 🔍 性能监控：每日告警数据加载完成
+        const phase2Time = performance.now() - phase2Start;
+        const phase2TotalTime = performance.now() - perfStart;
+        console.log(`⏱️  [阶段2完成] 每日告警循环: ${phase2Time.toFixed(0)}ms (累计${phase2TotalTime.toFixed(0)}ms)`, {
+          天数: dataWithAlarmInfo.length,
+          并行请求数: dataWithAlarmInfo.length * 2,
+          平均每天: `${(phase2Time / dataWithAlarmInfo.length).toFixed(0)}ms`,
+          总请求: `${dataWithAlarmInfo.length}天 × 2个API = ${dataWithAlarmInfo.length * 2}个请求`
+        });
+
         setLossComparison(dataWithAlarmInfo);
 
-        // 汇总所有告警
-        const allAlarmsArray = dataWithAlarmInfo.flatMap(day => day.alarmDetails || []);
-        setAllAlarms(allAlarmsArray);
+        // 🔍 性能监控：日收益数据详情加载完成
+        const tableDataTime = performance.now() - perfStart;
+        console.log(`📋 [性能监控] 日收益数据详情接收完成: ${tableDataTime.toFixed(0)}ms (${(tableDataTime / 1000).toFixed(2)}秒)`, {
+          时间戳: new Date().toLocaleTimeString(),
+          数据行数: dataWithAlarmInfo.length,
+          包含告警数据: dataWithAlarmInfo.some(d => d.alarmCount > 0)
+        });
 
-        // 获取节假日损失数据（移到这里，在 comparisonData 作用域内）
-        try {
-          // 计算日期范围
-          const dates = comparisonData.map(d => new Date(d.date));
-          const startDate = new Date(Math.min(...dates)).toISOString().split('T')[0];
-          const endDate = new Date(Math.max(...dates)).toISOString().split('T')[0];
+        // 🚀 性能优化：并行获取所有损失数据和告警统计
+        console.log(`\n🔍 [阶段3] 开始并行获取损失数据API (${startDate} ~ ${endDate})`);
+        const phase3Start = performance.now();
 
-          console.log('=== 开始获取节假日损失数据 ===');
-          console.log('日期范围:', startDate, '至', endDate);
-          console.log('电站ID:', stationId);
-
-          const holidayResponse = await getHolidayLosses(stationId, {
-            startDate,
-            endDate
+        // 🔍 性能监控：为每个API添加独立计时
+        const api1Start = performance.now();
+        const holidayPromise = getHolidayLosses(stationId, { startDate, endDate })
+          .then(res => {
+            console.log(`  ├─ 📅 节假日损失API: ${(performance.now() - api1Start).toFixed(0)}ms`);
+            return res;
+          })
+          .catch(err => {
+            console.log(`  ├─ 📅 节假日损失API: ${(performance.now() - api1Start).toFixed(0)}ms (失败)`);
+            return { success: false, error: err };
           });
 
-          console.log('=== 节假日损失API响应 ===', holidayResponse);
-
-          if (holidayResponse.success) {
-            console.log('=== 节假日损失数据详情 ===');
-            console.log('节假日总损失:', holidayResponse.data.totalHolidayLoss);
-            console.log('节假日数量:', holidayResponse.data.holidayCount);
-            console.log('缺失数据数量:', holidayResponse.data.missingDataCount);
-            setHolidayLossData(holidayResponse.data);
-          } else {
-            console.warn('=== 节假日损失API返回失败状态 ===');
-          }
-
-          // 获取非计划性停机损失（工作日SOC无变化的损失）
-          console.log('=== 开始获取非计划性停机损失数据 ===');
-          const unplannedOutageResponse = await getUnplannedOutageLosses(stationId, {
-            startDate,
-            endDate
+        const api2Start = performance.now();
+        const unplannedPromise = getUnplannedOutageLosses(stationId, { startDate, endDate })
+          .then(res => {
+            console.log(`  ├─ 🚫 非计划停机损失API: ${(performance.now() - api2Start).toFixed(0)}ms`);
+            return res;
+          })
+          .catch(err => {
+            console.log(`  ├─ 🚫 非计划停机损失API: ${(performance.now() - api2Start).toFixed(0)}ms (失败)`);
+            return { success: false, error: err };
           });
 
-          console.log('=== 非计划性停机损失API响应 ===', unplannedOutageResponse);
+        const api3Start = performance.now();
+        const powerLimitPromise = getPowerLimitationLosses(stationId, {
+          startDate,
+          endDate,
+          regionId: '330000',
+          userType: 0,
+          voltageType: 1
+        })
+          .then(res => {
+            console.log(`  ├─ ⚡ 功率受限损失API: ${(performance.now() - api3Start).toFixed(0)}ms`);
+            return res;
+          })
+          .catch(err => {
+            console.log(`  ├─ ⚡ 功率受限损失API: ${(performance.now() - api3Start).toFixed(0)}ms (失败)`);
+            return { success: false, error: err };
+          });
 
-          if (unplannedOutageResponse.success) {
-            console.log('=== 非计划性停机损失数据详情 ===');
-            console.log('非计划性停机总损失:', unplannedOutageResponse.data.totalUnplannedOutageLoss);
-            console.log('工作日数量:', unplannedOutageResponse.data.workdayCount);
-            console.log('无充放电天数:', unplannedOutageResponse.data.noChargingDays);
-            setUnplannedOutageLossData(unplannedOutageResponse.data);
-          } else {
-            console.warn('=== 非计划性停机损失API返回失败状态 ===');
-          }
-        } catch (holidayError) {
-          console.error('=== 获取节假日/非计划性停机损失数据失败 ===', holidayError);
+        const api4Start = performance.now();
+        const alarmStatsPromise = api.get(`/alarms/station/${stationId}/stats`)
+          .then(res => {
+            console.log(`  └─ 📊 告警统计API: ${(performance.now() - api4Start).toFixed(0)}ms`);
+            return res.data;
+          })
+          .catch(() => {
+            console.log(`  └─ 📊 告警统计API: ${(performance.now() - api4Start).toFixed(0)}ms (失败)`);
+            return { success: false };
+          });
+
+        // 🚫 暂时禁用策略偏差损失API（预计算数据尚未完成）
+        // const api5Start = performance.now();
+        // const strategyDeviationPromise = getStrategyDeviationLosses(stationId, {
+        //   startDate,
+        //   endDate,
+        //   regionId: '330000',
+        //   userType: 0,
+        //   voltageType: 1
+        // })
+        //   .then(res => {
+        //     console.log(`  └─ 📉 策略偏差损失API: ${(performance.now() - api5Start).toFixed(0)}ms`);
+        //     return res;
+        //   })
+        //   .catch(err => {
+        //     console.log(`  └─ 📉 策略偏差损失API: ${(performance.now() - api5Start).toFixed(0)}ms (失败)`);
+        //     return { success: false, error: err };
+        //   });
+
+        const [holidayResponse, unplannedOutageResponse, powerLimitResponse, alarmStatsResponse] = await Promise.all([
+          holidayPromise,
+          unplannedPromise,
+          powerLimitPromise,
+          alarmStatsPromise
+        ]);
+
+        // 🚫 暂时禁用策略偏差损失数据（设置为空响应）
+        const strategyDeviationResponse = { success: false };
+
+        // 🔍 性能监控：损失数据并行请求完成
+        const phase3Time = performance.now() - phase3Start;
+        const phase3TotalTime = performance.now() - perfStart;
+        console.log(`⏱️  [阶段3完成] 损失数据并行请求: ${phase3Time.toFixed(0)}ms (累计${phase3TotalTime.toFixed(0)}ms)`, {
+          请求数: 4,
+          API列表: [
+            '节假日损失 (holiday-losses)',
+            '非计划停机 (unplanned-outage-losses)',
+            '功率受限 (power-limitation-losses)',
+            '告警统计 (alarm-stats)'
+            // '策略偏差损失 (strategy-deviation-losses)' - 暂时禁用
+          ]
+        });
+
+        // 处理节假日损失数据
+        if (holidayResponse.success) {
+          setHolidayLossData(holidayResponse.data);
         }
-      }
 
-      // 获取告警统计数据（不限制日期范围，获取该站点的所有告警）
-      try {
-        console.log('=== Fetching alarm stats for station:', stationId);
-
-        const alarmResponse = await fetch(
-          `http://localhost:5001/api/alarms/station/${stationId}/stats?_t=${Date.now()}`
-        );
-
-        console.log('=== Alarm response status:', alarmResponse.status);
-
-        if (alarmResponse.ok) {
-          const alarmResult = await alarmResponse.json();
-          console.log('=== Alarm result:', alarmResult);
-
-          if (alarmResult.success && alarmResult.data.totalCount > 0) {
-            console.log('=== Setting alarm stats with data:', alarmResult.data);
-            setAlarmStats(alarmResult.data);
-          } else {
-            console.log('=== No alarm data or unsuccessful response');
-          }
-        } else {
-          console.error('=== Alarm response not OK:', alarmResponse.status);
+        // 处理非计划性停机损失数据
+        if (unplannedOutageResponse.success) {
+          setUnplannedOutageLossData(unplannedOutageResponse.data);
         }
-      } catch (alarmError) {
-        console.error('=== Error fetching alarm stats:', alarmError);
+
+        // 处理功率受限损失数据
+        if (powerLimitResponse.success) {
+          setPowerLimitationLossData(powerLimitResponse.data);
+        }
+
+        // 处理告警统计数据
+        if (alarmStatsResponse.success && alarmStatsResponse.data?.totalCount > 0) {
+          setAlarmStats(alarmStatsResponse.data);
+        }
+
+        // 处理策略偏差损失数据
+        if (strategyDeviationResponse.success) {
+          setStrategyDeviationLossData(strategyDeviationResponse.data);
+          console.log('策略偏差损失数据:', strategyDeviationResponse.data);
+        }
       }
     } catch (error) {
       console.error('获取损失数据失败:', error);
     } finally {
       setLoading(false);
+
+      // 🔍 性能监控：总加载时间
+      const totalTime = performance.now() - perfStart;
+      console.log('\n' + '═'.repeat(80));
+      console.log(`✅ [性能汇总] 损失分析页面加载完成: ${totalTime.toFixed(0)}ms (${(totalTime / 1000).toFixed(2)}秒)`);
+      console.log('─'.repeat(80));
+      console.log(`   电站ID: ${stationId}`);
+      console.log(`   完成时间: ${new Date().toLocaleTimeString()}`);
+      console.log(`   总耗时: ${(totalTime / 1000).toFixed(2)}秒`);
+      console.log('═'.repeat(80));
     }
+  };
+
+  useEffect(() => {
+    if (stationId && stationData) {
+      // 🚀 防止React StrictMode导致的双重调用
+      if (isLoadingRef.current) {
+        console.log('⏭️  [性能监控] 跳过重复调用（React StrictMode双重渲染）');
+        return;
+      }
+
+      isLoadingRef.current = true;
+
+      // 重置告警详情加载状态，强制重新加载
+      setAlarmDetailsLoaded(false);
+      setAllAlarms([]);
+      setShowAlarmDetails(false);
+
+      fetchLossData().finally(() => {
+        // 数据加载完成后重置守卫，允许下次切换电站时重新加载
+        setTimeout(() => {
+          isLoadingRef.current = false;
+        }, 100);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stationId, stationData, startDate, endDate]);
+
+  // 处理查询按钮点击
+  const handleDateQuery = () => {
+    if (!tempStartDate || !tempEndDate) {
+      alert('请选择开始日期和结束日期');
+      return;
+    }
+
+    if (new Date(tempStartDate) > new Date(tempEndDate)) {
+      alert('开始日期不能晚于结束日期');
+      return;
+    }
+
+    // 更新实际日期范围，触发数据重新加载
+    setStartDate(tempStartDate);
+    setEndDate(tempEndDate);
+  };
+
+  // 处理重置按钮点击
+  const handleDateReset = () => {
+    // 重置为默认日期范围
+    setTempStartDate(DEFAULT_START_DATE);
+    setTempEndDate(DEFAULT_END_DATE);
+    setStartDate(DEFAULT_START_DATE);
+    setEndDate(DEFAULT_END_DATE);
   };
 
   const formatCurrency = (value) => {
@@ -339,19 +565,16 @@ export default function LossAnalysis({ stationId, stationData }) {
     }
   };
 
-  // 处理损失饼图点击事件
-  const handleLossBreakdownClick = (lossType, value) => {
-    console.log('点击损失类型:', lossType, '金额:', value);
-
+  // 处理损失饼图点击事件 - 使用 useCallback 优化
+  const handleLossBreakdownClick = useCallback((lossType) => {
     if (lossType === '故障停机损失' || lossType === '设备停机损失') {
-      // 打开设备停机损失详情弹窗
       setShowEquipmentOutageModal(true);
     } else if (lossType === '非计划性停机损失') {
-      // 打开非计划性停机损失详情弹窗
       setShowUnplannedOutageModal(true);
+    } else if (lossType === '策略偏差损失') {
+      setShowStrategyDeviationModal(true);
     }
-    // 可以在这里添加其他损失类型的处理逻辑
-  };
+  }, []);
 
   // 为每个设备类型分配固定颜色
   const getDeviceColor = (device) => {
@@ -398,7 +621,7 @@ export default function LossAnalysis({ stationId, stationData }) {
   return (
     <div className="loss-analysis-container">
       <div className="loss-analysis-header">
-        <h2>收益损失分析</h2>
+        <h2>损失分析</h2>
         <p className="section-subtitle">分析每日收益损失的原因分类</p>
       </div>
 
@@ -479,6 +702,55 @@ export default function LossAnalysis({ stationId, stationData }) {
         );
       })()}
 
+      {/* 日期范围选择器 */}
+      <div className="date-range-selector">
+        <div className="date-input-group">
+          <label htmlFor="start-date">
+            <Calendar size={16} />
+            <span>开始日期</span>
+          </label>
+          <input
+            id="start-date"
+            type="date"
+            value={tempStartDate}
+            onChange={(e) => setTempStartDate(e.target.value)}
+            max={tempEndDate}
+          />
+        </div>
+
+        <div className="date-separator">至</div>
+
+        <div className="date-input-group">
+          <label htmlFor="end-date">
+            <Calendar size={16} />
+            <span>结束日期</span>
+          </label>
+          <input
+            id="end-date"
+            type="date"
+            value={tempEndDate}
+            onChange={(e) => setTempEndDate(e.target.value)}
+            min={tempStartDate}
+          />
+        </div>
+
+        <button
+          className="query-button"
+          onClick={handleDateQuery}
+          disabled={loading}
+        >
+          {loading ? '查询中...' : '查询'}
+        </button>
+
+        <button
+          className="reset-button"
+          onClick={handleDateReset}
+          disabled={loading}
+        >
+          重置
+        </button>
+      </div>
+
       {/* 损失收益分析 */}
       {lossComparison.length > 0 && (() => {
         // 计算总告警损失和总损失收益
@@ -487,17 +759,9 @@ export default function LossAnalysis({ stationId, stationData }) {
           revenueLoss: acc.revenueLoss + (day.revenueLoss || 0)
         }), { alarmLoss: 0, revenueLoss: 0 });
 
-        // Debug: log data being passed to pie chart
-        console.log('=== 饼图数据调试 ===');
-        console.log('告警损失总计 (alarmLoss):', totals.alarmLoss);
-        console.log('总损失收益 (totalRevenueLoss):', totals.revenueLoss);
-        console.log('节假日损失数据状态:', holidayLossData);
-        console.log('节假日损失金额 (holidayLoss):', holidayLossData?.totalHolidayLoss || 0);
-        console.log('其他损失:', totals.revenueLoss - totals.alarmLoss - (holidayLossData?.totalHolidayLoss || 0));
-
         return (
           <div className="loss-pie-chart-section">
-            <h3>损失收益分析</h3>
+            <h3>损失分析</h3>
             <p className="chart-description">分析损失收益的具体构成，包括设备停机损失、非计划性停机损失、节假日损失和其他类型损失</p>
             <div className="loss-pie-container">
               <LossBreakdownPieChart
@@ -505,13 +769,15 @@ export default function LossAnalysis({ stationId, stationData }) {
                 totalRevenueLoss={totals.revenueLoss}
                 holidayLoss={holidayLossData?.totalHolidayLoss || 0}
                 unplannedOutageLoss={unplannedOutageLossData?.totalUnplannedOutageLoss || 0}
+                powerLimitationLoss={powerLimitationLossData?.totalPowerLimitationLoss || 0}
+                strategyDeviationLoss={strategyDeviationLossData?.totalStrategyDeviationLoss || 0}
                 onItemClick={handleLossBreakdownClick}
                 getLossTypeColor={getLossTypeColor}
               />
             </div>
 
             {/* 告警损失明细表格 */}
-            {allAlarms.length > 0 && (
+            {totals.alarmLoss > 0 && (
               <div className="alarm-loss-details" style={{ marginTop: '2rem' }}>
                 <div style={{
                   display: 'flex',
@@ -528,7 +794,7 @@ export default function LossAnalysis({ stationId, stationData }) {
                         color: 'var(--text-secondary)',
                         fontWeight: 400
                       }}>
-                        ({allAlarms.filter(alarm => alarm.loss > 0).length} 条记录)
+                        ({alarmDetailsLoaded ? sortedAlarms.length : '点击展开查看'})
                       </span>
                     </h4>
                     <div style={{
@@ -549,7 +815,7 @@ export default function LossAnalysis({ stationId, stationData }) {
                     </div>
                   </div>
                   <button
-                    onClick={() => setShowAlarmDetails(!showAlarmDetails)}
+                    onClick={handleToggleAlarmDetails}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -579,12 +845,24 @@ export default function LossAnalysis({ stationId, stationData }) {
                 </div>
 
                 {showAlarmDetails && (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table className="alarm-loss-table" style={{
-                      width: '100%',
-                      borderCollapse: 'collapse',
-                      fontSize: '0.9rem'
+                  loadingAlarmDetails ? (
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      padding: '3rem',
+                      color: 'var(--text-secondary)'
                     }}>
+                      <div className="spinner" style={{ marginRight: '1rem' }}></div>
+                      <span>加载告警明细中...</span>
+                    </div>
+                  ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table className="alarm-loss-table" style={{
+                        width: '100%',
+                        borderCollapse: 'collapse',
+                        fontSize: '0.9rem'
+                      }}>
                       <thead>
                         <tr style={{
                           background: 'var(--surface-hover)',
@@ -602,10 +880,7 @@ export default function LossAnalysis({ stationId, stationData }) {
                         </tr>
                       </thead>
                       <tbody>
-                        {allAlarms
-                          .filter(alarm => alarm.loss > 0) // 只显示有损失的告警
-                          .sort((a, b) => b.loss - a.loss) // 按损失从大到小排序
-                          .map((alarm, index) => (
+                        {sortedAlarms.map((alarm, index) => (
                           <tr key={alarm.alarmId} style={{
                             borderBottom: '1px solid var(--border)',
                             background: index % 2 === 0 ? 'transparent' : 'var(--surface-hover)'
@@ -727,10 +1002,10 @@ export default function LossAnalysis({ stationId, stationData }) {
                         }}>
                           <td colSpan="6" style={{ padding: '0.75rem', textAlign: 'right' }}>总计：</td>
                           <td style={{ padding: '0.75rem', textAlign: 'right', color: '#f59e0b' }}>
-                            {formatCurrency(allAlarms.reduce((sum, a) => sum + (a.timeLoss || 0), 0))}
+                            {formatCurrency(alarmTotals.timeLoss)}
                           </td>
                           <td style={{ padding: '0.75rem', textAlign: 'right', color: '#8b5cf6' }}>
-                            {formatCurrency(allAlarms.reduce((sum, a) => sum + (a.socTargetLoss || 0), 0))}
+                            {formatCurrency(alarmTotals.socTargetLoss)}
                           </td>
                           <td style={{ padding: '0.75rem', textAlign: 'right', color: '#ef4444' }}>
                             {formatCurrency(totals.alarmLoss)}
@@ -739,6 +1014,7 @@ export default function LossAnalysis({ stationId, stationData }) {
                       </tfoot>
                     </table>
                   </div>
+                  )
                 )}
               </div>
             )}
@@ -747,11 +1023,6 @@ export default function LossAnalysis({ stationId, stationData }) {
       })()}
 
       {/* 损失统计概览 */}
-      {(() => {
-        console.log('=== Render: lossStats:', lossStats);
-        console.log('=== Render: alarmStats:', alarmStats);
-        return null;
-      })()}
       {lossStats && lossStats.stats.length > 0 ? (
         <>
           <div className="loss-stats-cards">
@@ -848,11 +1119,6 @@ export default function LossAnalysis({ stationId, stationData }) {
       ) : (
         <>
           {/* 即使没有手动记录,也显示告警统计 */}
-          {(() => {
-            console.log('=== In else branch - alarmStats:', alarmStats);
-            console.log('=== Condition check:', alarmStats && alarmStats.totalCount > 0);
-            return null;
-          })()}
           {alarmStats && alarmStats.totalCount > 0 && (
             <div className="alarm-stats-section">
               <h3>设备停机统计</h3>
@@ -898,7 +1164,7 @@ export default function LossAnalysis({ stationId, stationData }) {
       {lossComparison.length > 0 && (
         <div className="loss-comparison-section">
           <div className="section-header">
-            <h3>收益损失详情</h3>
+            <h3>日收益数据详情</h3>
             <div className="time-view-tabs">
               <button
                 className={`view-tab ${timeView === 'daily' ? 'active' : ''}`}
@@ -924,8 +1190,8 @@ export default function LossAnalysis({ stationId, stationData }) {
                   <th>收益损失</th>
                   <th>达成率</th>
                   <th>故障数</th>
-                  <th>告警损失</th>
-                  <th>损失原因</th>
+                  <th>故障损失</th>
+                  {/* <th>损失原因</th> */}
                   <th>操作</th>
                 </tr>
               </thead>
@@ -963,7 +1229,7 @@ export default function LossAnalysis({ stationId, stationData }) {
                               <span className="no-loss">-</span>
                             )}
                           </td>
-                          <td>
+                          {/* <td>
                             <div className="loss-breakdown">
                               {day.lossBreakdown && day.lossBreakdown.length > 0 && (
                                 day.lossBreakdown.map((loss, i) => (
@@ -984,7 +1250,7 @@ export default function LossAnalysis({ stationId, stationData }) {
                                 ))
                               )}
                             </div>
-                          </td>
+                          </td> */}
                           <td>
                             <div className="action-buttons">
                               <button
@@ -994,16 +1260,11 @@ export default function LossAnalysis({ stationId, stationData }) {
                                   setShowAlarmModal(true);
                                 }}
                               >
-                                查看损失分析
+                                查看故障分析
                               </button>
                               <button
                                 className="view-soc-btn"
                                 onClick={() => {
-                                  console.log('🔵 [点击SOC按钮] 原始 day.date:', day.date);
-                                  console.log('🔵 [点击SOC按钮] day.date类型:', typeof day.date);
-                                  console.log('🔵 [点击SOC按钮] day对象:', JSON.stringify(day, null, 2));
-
-                                  // Convert ISO string to local date YYYY-MM-DD
                                   const dateObj = new Date(day.date);
                                   const UTC_OFFSET_MS = 8 * 60 * 60 * 1000;
                                   const localDate = new Date(dateObj.getTime() + UTC_OFFSET_MS);
@@ -1012,7 +1273,6 @@ export default function LossAnalysis({ stationId, stationData }) {
                                   const dayStr = String(localDate.getUTCDate()).padStart(2, '0');
                                   const formattedDate = `${year}-${month}-${dayStr}`;
 
-                                  console.log('🔵 [转换后的本地日期]:', formattedDate);
                                   setSelectedDate(formattedDate);
                                   setShowSocModal(true);
                                 }}
@@ -1057,7 +1317,8 @@ export default function LossAnalysis({ stationId, stationData }) {
                             <span className="no-loss">-</span>
                           )}
                         </td>
-                        <td>
+                        {/* 损失原因列已隐藏 */}
+                        {/* <td>
                           <div className="loss-breakdown">
                             {month.lossBreakdown && month.lossBreakdown.length > 0 && (
                               month.lossBreakdown.map((loss, i) => (
@@ -1077,7 +1338,6 @@ export default function LossAnalysis({ stationId, stationData }) {
                                 </div>
                               ))
                             )}
-                            {/* 添加查看损失分析按钮 */}
                             <button
                               className="view-alarm-btn"
                               onClick={() => {
@@ -1088,7 +1348,7 @@ export default function LossAnalysis({ stationId, stationData }) {
                               查看损失分析
                             </button>
                           </div>
-                        </td>
+                        </td> */}
                       </tr>
                     ))
                 )}
@@ -1183,6 +1443,15 @@ export default function LossAnalysis({ stationId, stationData }) {
         isOpen={showUnplannedOutageModal}
         onClose={() => setShowUnplannedOutageModal(false)}
         unplannedOutageData={unplannedOutageLossData}
+      />
+
+      {/* 策略偏差损失详情弹窗 */}
+      <StrategyDeviationDetailModal
+        isOpen={showStrategyDeviationModal}
+        onClose={() => setShowStrategyDeviationModal(false)}
+        stationId={stationId}
+        startDate={strategyDeviationLossData?.dateRange?.startDate || ''}
+        endDate={strategyDeviationLossData?.dateRange?.endDate || ''}
       />
     </div>
   );

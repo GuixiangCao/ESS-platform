@@ -535,29 +535,29 @@
 /* 告警条数样式 */
 .alarm-count {
   text-align: center;
+  background: transparent !important;
 }
 
 .alarm-count-badge {
   display: inline-block;
-  padding: 4px 12px;
-  border-radius: 12px;
   font-size: 0.9rem;
   font-weight: 600;
   font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
   cursor: default;
   pointer-events: none;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .alarm-count-badge.has-alarms {
-  background: rgba(239, 68, 68, 0.1);
   color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: transparent !important;
 }
 
 .alarm-count-badge.no-alarms {
-  background: rgba(34, 197, 94, 0.1);
   color: #22c55e;
-  border: 1px solid rgba(34, 197, 94, 0.3);
+  background: transparent !important;
 }
 
 /* 告警损失样式 */
@@ -722,5 +722,139 @@
   .hours-badge svg {
     width: 12px;
     height: 12px;
+  }
+}
+
+/* 日期范围选择器 */
+.date-range-selector {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.date-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.date-input-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.date-input-group input[type="date"] {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--background);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-family: inherit;
+  transition: var(--transition-base);
+  min-width: 150px;
+}
+
+.date-input-group input[type="date"]:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.date-input-group input[type="date"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.date-separator {
+  margin-top: 1.5rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.query-button {
+  margin-top: 1.5rem;
+  padding: 0.5rem 1.5rem;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition-base);
+  white-space: nowrap;
+}
+
+.query-button:hover:not(:disabled) {
+  background: var(--accent-hover);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  transform: translateY(-1px);
+}
+
+.query-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.query-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.reset-button {
+  margin-top: 1.5rem;
+  padding: 0.5rem 1.5rem;
+  background: var(--background);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition-base);
+  white-space: nowrap;
+}
+
+.reset-button:hover:not(:disabled) {
+  background: var(--surface);
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.reset-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.reset-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .date-range-selector {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .date-separator {
+    margin-top: 0;
+    text-align: center;
+  }
+
+  .query-button,
+  .reset-button {
+    margin-top: 0;
   }
 }

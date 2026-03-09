@@ -68,6 +68,17 @@
   color: #a855f7;
 }
 
+.daily-loss-excluded {
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-decoration: line-through;
+}
+
+.date-badge-excluded {
+  background: #94a3b8 !important;
+}
+
 .day-details {
   padding: 1rem 1.25rem;
   display: flex;

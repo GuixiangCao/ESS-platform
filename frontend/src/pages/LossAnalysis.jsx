@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { AlertTriangle, Zap, Cloud, TrendingDown, TrendingUp, DollarSign, Calendar, LineChart, ChevronDown, ChevronUp } from 'lucide-react';
+import { AlertTriangle, Zap, Cloud, TrendingDown, TrendingUp, DollarSign, Calendar, LineChart, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, EyeOff, Eye, X } from 'lucide-react';
+import * as echarts from 'echarts';
 import api from '../services/api';
 import AlarmModal from '../components/AlarmModal';
 import MonthlyAlarmModal from '../components/MonthlyAlarmModal';
@@ -10,6 +11,7 @@ import SocDetailModal from '../components/SocDetailModal';
 import EquipmentOutageDetailModal from '../components/EquipmentOutageDetailModal';
 import UnplannedOutageDetailModal from '../components/UnplannedOutageDetailModal';
 import StrategyDeviationDetailModal from '../components/StrategyDeviationDetailModal';
+import HolidayLossDetailModal from '../components/HolidayLossDetailModal';
 import { getDailyChargingStats } from '../services/chargingStrategyService';
 import { calculateStationLosses, getHolidayLosses, getUnplannedOutageLosses, getStrategyDeviationLosses } from '../services/alarmLossService';
 import { getPowerLimitationLosses } from '../services/powerLimitationLossService';
@@ -17,7 +19,13 @@ import './LossAnalysis.css';
 
 // 默认日期范围常量
 const DEFAULT_START_DATE = '2025-09-01';
-const DEFAULT_END_DATE = '2026-01-26';
+// 结束日期默认为昨天
+const getYesterday = () => {
+  const today = new Date();
+  today.setDate(today.getDate() - 1);
+  return today.toISOString().split('T')[0];
+};
+const DEFAULT_END_DATE = getYesterday();
 
 export default function LossAnalysis({ stationId, stationData }) {
   const [lossStats, setLossStats] = useState(null);
@@ -40,10 +48,25 @@ export default function LossAnalysis({ stationId, stationData }) {
   const [showEquipmentOutageModal, setShowEquipmentOutageModal] = useState(false);
   const [showUnplannedOutageModal, setShowUnplannedOutageModal] = useState(false);
   const [showStrategyDeviationModal, setShowStrategyDeviationModal] = useState(false);
+  const [showHolidayLossModal, setShowHolidayLossModal] = useState(false);
+  const [showAiAnalysisModal, setShowAiAnalysisModal] = useState(false); // AI可提升分析弹窗
+  const [aiAnalysisData, setAiAnalysisData] = useState(null); // AI分析弹窗数据
+  const [aiAnalysisLoading, setAiAnalysisLoading] = useState(false); // AI分析加载状态
+  const aiSummaryPieRef = useRef(null); // AI汇总饼图容器（主页面）
+  const aiSummaryPieInstance = useRef(null); // AI汇总饼图实例（主页面）
+  const [aiSummary, setAiSummary] = useState(null); // 预计算的AI提升累计值
+  const [showIgnoreModal, setShowIgnoreModal] = useState(false); // 忽略原因弹框
+  const [ignoreTargetDay, setIgnoreTargetDay] = useState(null); // 待忽略的日期数据
+  const [ignoreLoading, setIgnoreLoading] = useState(false); // 忽略操作加载状态
+  const [ignoreReason, setIgnoreReason] = useState(''); // 忽略原因文本
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [timeView, setTimeView] = useState('daily'); // 'daily' or 'monthly'
   const [showAlarmDetails, setShowAlarmDetails] = useState(false); // 控制告警明细表格的展开/收起
+
+  // 分页状态
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 50; // 每页50条
 
   // 日期范围选择器状态
   const [startDate, setStartDate] = useState(DEFAULT_START_DATE);
@@ -198,75 +221,22 @@ export default function LossAnalysis({ stationId, stationData }) {
       if (comparisonResponse.data.success) {
         const comparisonData = comparisonResponse.data.data;
 
-        console.log(`\n🔍 [阶段2] 开始每日告警循环，共${comparisonData.length}天数据`);
-        const phase2Start = performance.now();
+        // 🚀 告警数据已从 loss-comparison API 预存字段中获取（alarmCount/alarmLoss）
+        // 无需逐天请求，直接使用
+        setLossComparison(comparisonData);
 
-        // 为每一天获取告警数量和告警损失（并行优化）
-        const dataWithAlarmInfo = await Promise.all(
-          comparisonData.map(async (day) => {
-            try {
-              // 将日期转换为 YYYY-MM-DD 格式
-              const dateObj = new Date(day.date);
-              const year = dateObj.getFullYear();
-              const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-              const dayStr = String(dateObj.getDate()).padStart(2, '0');
-              const formattedDate = `${year}-${month}-${dayStr}`;
+        // 预计算的AI提升累计值（默认全量范围时由后端返回）
+        if (comparisonResponse.data.aiSummary) {
+          setAiSummary(comparisonResponse.data.aiSummary);
+        } else {
+          setAiSummary(null);
+        }
 
-              // 🚀 性能优化：并行执行两个请求
-              const [alarmResponse, lossResponse] = await Promise.all([
-                api.get(`/alarms/station/${stationId}/daily`, { params: { date: formattedDate } })
-                  .then(res => res.data)
-                  .catch(() => null),
-                calculateStationLosses(stationId, {
-                  startDate: formattedDate,
-                  endDate: formattedDate
-                }).catch(() => null)
-              ]);
-
-              let alarmCount = 0;
-              let alarmLoss = 0;
-
-              // 处理告警计数响应
-              if (alarmResponse && alarmResponse.success) {
-                alarmCount = alarmResponse.data.totalCount || 0;
-              }
-
-              // 处理告警损失响应
-              if (lossResponse && lossResponse.success && lossResponse.data) {
-                alarmLoss = lossResponse.data.totalLoss || 0;
-                // 不再获取 alarmDetails，等待懒加载
-              }
-
-              return {
-                ...day,
-                alarmCount,
-                alarmLoss
-              };
-            } catch (error) {
-              console.error('获取告警信息失败:', error);
-              return { ...day, alarmCount: 0, alarmLoss: 0 };
-            }
-          })
-        );
-
-        // 🔍 性能监控：每日告警数据加载完成
-        const phase2Time = performance.now() - phase2Start;
-        const phase2TotalTime = performance.now() - perfStart;
-        console.log(`⏱️  [阶段2完成] 每日告警循环: ${phase2Time.toFixed(0)}ms (累计${phase2TotalTime.toFixed(0)}ms)`, {
-          天数: dataWithAlarmInfo.length,
-          并行请求数: dataWithAlarmInfo.length * 2,
-          平均每天: `${(phase2Time / dataWithAlarmInfo.length).toFixed(0)}ms`,
-          总请求: `${dataWithAlarmInfo.length}天 × 2个API = ${dataWithAlarmInfo.length * 2}个请求`
-        });
-
-        setLossComparison(dataWithAlarmInfo);
-
-        // 🔍 性能监控：日收益数据详情加载完成
-        const tableDataTime = performance.now() - perfStart;
-        console.log(`📋 [性能监控] 日收益数据详情接收完成: ${tableDataTime.toFixed(0)}ms (${(tableDataTime / 1000).toFixed(2)}秒)`, {
+        const phase1TotalTime = performance.now() - perfStart;
+        console.log(`📋 [性能监控] 收益对比数据接收完成: ${phase1TotalTime.toFixed(0)}ms (${(phase1TotalTime / 1000).toFixed(2)}秒)`, {
           时间戳: new Date().toLocaleTimeString(),
-          数据行数: dataWithAlarmInfo.length,
-          包含告警数据: dataWithAlarmInfo.some(d => d.alarmCount > 0)
+          数据行数: comparisonData.length,
+          包含告警数据: comparisonData.some(d => d.alarmCount > 0)
         });
 
         // 🚀 性能优化：并行获取所有损失数据和告警统计
@@ -302,7 +272,7 @@ export default function LossAnalysis({ stationId, stationData }) {
           endDate,
           regionId: '330000',
           userType: 0,
-          voltageType: 1
+          voltageType: 3
         })
           .then(res => {
             console.log(`  ├─ ⚡ 功率受限损失API: ${(performance.now() - api3Start).toFixed(0)}ms`);
@@ -331,7 +301,7 @@ export default function LossAnalysis({ stationId, stationData }) {
         //   endDate,
         //   regionId: '330000',
         //   userType: 0,
-        //   voltageType: 1
+        //   voltageType: 3
         // })
         //   .then(res => {
         //     console.log(`  └─ 📉 策略偏差损失API: ${(performance.now() - api5Start).toFixed(0)}ms`);
@@ -477,6 +447,98 @@ export default function LossAnalysis({ stationId, stationData }) {
     return `${date.getFullYear()}年${String(date.getMonth() + 1).padStart(2, '0')}月`;
   };
 
+  // 忽略AI提升规则
+  const handleIgnoreRule = async () => {
+    if (!ignoreTargetDay || !ignoreReason.trim()) return;
+    setIgnoreLoading(true);
+    try {
+      const dateObj = new Date(aiAnalysisData.date);
+      const UTC_OFFSET_MS = 8 * 60 * 60 * 1000;
+      const localDate = new Date(dateObj.getTime() + UTC_OFFSET_MS);
+      const dateStr = `${localDate.getUTCFullYear()}-${String(localDate.getUTCMonth() + 1).padStart(2, '0')}-${String(localDate.getUTCDate()).padStart(2, '0')}`;
+
+      const response = await api.put(
+        `/revenue/station/${stationId}/ai-improvement/${dateStr}/rule/${ignoreTargetDay.ruleId}/ignore`,
+        { ignored: true, reason: ignoreReason.trim() }
+      );
+
+      if (response.data.success) {
+        // 更新弹框中的规则忽略状态
+        setAiAnalysisData(prev => ({
+          ...prev,
+          aiImprovement: response.data.data.effectiveTotal,
+          rules: prev.rules?.map(r => {
+            const updated = response.data.data.rules.find(ur => ur.ruleId === r.ruleId);
+            return updated ? { ...r, ignored: updated.ignored } : r;
+          })
+        }));
+        // 更新日列表中的 aiImprovement
+        setLossComparison(prev => prev.map(day => {
+          if (new Date(day.date).getTime() === new Date(aiAnalysisData.date).getTime()) {
+            return { ...day, aiImprovement: response.data.data.effectiveTotal };
+          }
+          return day;
+        }));
+        // 刷新 aiSummary
+        try {
+          const summaryRes = await api.get(
+            `/revenue/station/${stationId}/loss-comparison`,
+            { params: { startDate, endDate } }
+          );
+          if (summaryRes.data.aiSummary) setAiSummary(summaryRes.data.aiSummary);
+        } catch (e) { /* ignore */ }
+      }
+    } catch (error) {
+      console.error('忽略规则失败:', error);
+    } finally {
+      setIgnoreLoading(false);
+      setShowIgnoreModal(false);
+      setIgnoreTargetDay(null);
+      setIgnoreReason('');
+    }
+  };
+
+  // 恢复生效AI提升规则
+  const handleRestoreRule = async (ruleId) => {
+    try {
+      const dateObj = new Date(aiAnalysisData.date);
+      const UTC_OFFSET_MS = 8 * 60 * 60 * 1000;
+      const localDate = new Date(dateObj.getTime() + UTC_OFFSET_MS);
+      const dateStr = `${localDate.getUTCFullYear()}-${String(localDate.getUTCMonth() + 1).padStart(2, '0')}-${String(localDate.getUTCDate()).padStart(2, '0')}`;
+
+      const response = await api.put(
+        `/revenue/station/${stationId}/ai-improvement/${dateStr}/rule/${ruleId}/ignore`,
+        { ignored: false }
+      );
+
+      if (response.data.success) {
+        setAiAnalysisData(prev => ({
+          ...prev,
+          aiImprovement: response.data.data.effectiveTotal,
+          rules: prev.rules?.map(r => {
+            const updated = response.data.data.rules.find(ur => ur.ruleId === r.ruleId);
+            return updated ? { ...r, ignored: updated.ignored } : r;
+          })
+        }));
+        setLossComparison(prev => prev.map(day => {
+          if (new Date(day.date).getTime() === new Date(aiAnalysisData.date).getTime()) {
+            return { ...day, aiImprovement: response.data.data.effectiveTotal };
+          }
+          return day;
+        }));
+        try {
+          const summaryRes = await api.get(
+            `/revenue/station/${stationId}/loss-comparison`,
+            { params: { startDate, endDate } }
+          );
+          if (summaryRes.data.aiSummary) setAiSummary(summaryRes.data.aiSummary);
+        } catch (e) { /* ignore */ }
+      }
+    } catch (error) {
+      console.error('恢复规则失败:', error);
+    }
+  };
+
   // 按月聚合数据
   const aggregateByMonth = (data) => {
     const monthlyData = {};
@@ -539,6 +601,179 @@ export default function LossAnalysis({ stationId, stationData }) {
     }));
   };
 
+  // 分页数据计算
+  const paginatedData = useMemo(() => {
+    let sourceData;
+    if (timeView === 'daily') {
+      sourceData = [...lossComparison].sort((a, b) => new Date(b.date) - new Date(a.date));
+    } else {
+      sourceData = aggregateByMonth(lossComparison).sort((a, b) => b.month.localeCompare(a.month));
+    }
+
+    const totalItems = sourceData.length;
+    const totalPages = Math.ceil(totalItems / pageSize) || 1;
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+
+    return {
+      data: sourceData.slice(startIndex, endIndex),
+      totalItems,
+      totalPages,
+      startIndex: startIndex + 1,
+      endIndex: Math.min(endIndex, totalItems)
+    };
+  }, [lossComparison, timeView, currentPage, pageSize]);
+
+  // 生成页码数组（智能省略中间页码）
+  const generatePageNumbers = (current, total) => {
+    if (total <= 7) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+
+    const pages = [1];
+    if (current > 3) pages.push('...');
+
+    for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
+      pages.push(i);
+    }
+
+    if (current < total - 2) pages.push('...');
+    pages.push(total);
+
+    return pages;
+  };
+
+  // 切换视图或日期范围时重置到第一页
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [timeView, startDate, endDate]);
+
+  // AI汇总饼图渲染（主页面）
+  useEffect(() => {
+    if (loading) return;
+    const ruleBreakdown = aiSummary?.ruleBreakdown;
+    if (!ruleBreakdown || ruleBreakdown.length === 0) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      if (!aiSummaryPieRef.current) return;
+
+      // 先 dispose 旧实例再重新 init，确保尺寸正确
+      if (aiSummaryPieInstance.current) {
+        aiSummaryPieInstance.current.dispose();
+        aiSummaryPieInstance.current = null;
+      }
+      aiSummaryPieInstance.current = echarts.init(aiSummaryPieRef.current);
+
+      const RULE_LABELS = {
+        1: '充电周期优化',
+        2: '放电周期优化',
+        3: '静置优化',
+        4: '充电周期优化',
+      };
+      const RULE_COLORS_MAP = {
+        1: '#3B82F6',
+        2: '#F59E0B',
+        3: '#10B981',
+        4: '#3B82F6',
+      };
+
+      const pieData = ruleBreakdown
+        .filter(r => r.totalImprovement > 0)
+        .map(r => ({
+          name: RULE_LABELS[r.ruleId] || `规则${r.ruleId}`,
+          value: Math.round(r.totalImprovement * 100) / 100,
+          itemStyle: { color: RULE_COLORS_MAP[r.ruleId] || '#6B7280' },
+        }));
+
+      if (pieData.length === 0) {
+        aiSummaryPieInstance.current.clear();
+        return;
+      }
+
+      const totalValue = pieData.reduce((s, d) => s + d.value, 0);
+
+      aiSummaryPieInstance.current.setOption({
+        tooltip: {
+          trigger: 'item',
+          confine: true,
+          formatter: ({ name, value, percent }) => `${name}<br/>¥${value.toFixed(2)} (${percent}%)`,
+        },
+        legend: {
+          bottom: 4,
+          left: 'center',
+          itemWidth: 12,
+          itemHeight: 12,
+          textStyle: { fontSize: 12 },
+        },
+        graphic: [{
+          type: 'text',
+          left: 'center',
+          top: '35%',
+          style: {
+            text: `¥${totalValue.toFixed(2)}`,
+            textAlign: 'center',
+            fontSize: 16,
+            fontWeight: 700,
+            fill: '#111827',
+          }
+        }, {
+          type: 'text',
+          left: 'center',
+          top: '45%',
+          style: {
+            text: '预计AI可提升总收益',
+            textAlign: 'center',
+            fontSize: 11,
+            fill: '#6b7280',
+          }
+        }],
+        color: pieData.map(d => d.itemStyle.color),
+        series: [{
+          type: 'pie',
+          radius: ['40%', '65%'],
+          center: ['50%', '42%'],
+          avoidLabelOverlap: true,
+          itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 },
+          label: {
+            show: false,
+          },
+          emphasis: {
+            label: {
+              show: true,
+              fontSize: 13,
+              fontWeight: 600,
+              formatter: ({ name, percent }) => `${name}\n${percent}%`,
+            }
+          },
+          data: pieData,
+        }],
+      });
+
+      // 点击"静置优化"跳转到SOC与功率负载分析页面
+      aiSummaryPieInstance.current.on('click', (params) => {
+        if (params.name === '静置优化' && [205, 233].includes(Number(stationId))) {
+          window.open(`/soc-power-analysis/${stationId}`, '_blank');
+        }
+      });
+    }, 200);
+
+    const handleResize = () => {
+      aiSummaryPieInstance.current?.resize();
+    };
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', handleResize);
+      if (aiSummaryPieInstance.current) {
+        aiSummaryPieInstance.current.dispose();
+        aiSummaryPieInstance.current = null;
+      }
+    };
+  }, [aiSummary, loading]);
+
   const getLossTypeIcon = (lossType) => {
     switch (lossType) {
       case 'planned_shutdown':
@@ -573,6 +808,8 @@ export default function LossAnalysis({ stationId, stationData }) {
       setShowUnplannedOutageModal(true);
     } else if (lossType === '策略偏差损失') {
       setShowStrategyDeviationModal(true);
+    } else if (lossType === '节假日损失') {
+      setShowHolidayLossModal(true);
     }
   }, []);
 
@@ -622,7 +859,7 @@ export default function LossAnalysis({ stationId, stationData }) {
     <div className="loss-analysis-container">
       <div className="loss-analysis-header">
         <h2>损失分析</h2>
-        <p className="section-subtitle">分析每日收益损失的原因分类</p>
+        <p className="section-subtitle">分析电站收益损失的原因分类</p>
       </div>
 
       {/* 收益对比概览 */}
@@ -647,7 +884,7 @@ export default function LossAnalysis({ stationId, stationData }) {
           : '0.00';
 
         return (
-          <div className="revenue-summary-cards">
+          <div className="revenue-summary-cards" style={[205, 233].includes(Number(stationId)) ? { display: 'none' } : undefined}>
             <div className="revenue-summary-card expected">
               <div className="card-icon">
                 <TrendingUp size={24} />
@@ -703,7 +940,7 @@ export default function LossAnalysis({ stationId, stationData }) {
       })()}
 
       {/* 日期范围选择器 */}
-      <div className="date-range-selector">
+      <div className="date-range-selector" style={[205, 233].includes(Number(stationId)) ? { display: 'none' } : undefined}>
         <div className="date-input-group">
           <label htmlFor="start-date">
             <Calendar size={16} />
@@ -756,24 +993,133 @@ export default function LossAnalysis({ stationId, stationData }) {
         // 计算总告警损失和总损失收益
         const totals = lossComparison.reduce((acc, day) => ({
           alarmLoss: acc.alarmLoss + (day.alarmLoss || 0),
-          revenueLoss: acc.revenueLoss + (day.revenueLoss || 0)
-        }), { alarmLoss: 0, revenueLoss: 0 });
+          revenueLoss: acc.revenueLoss + (day.revenueLoss || 0),
+          aiImprovement: acc.aiImprovement + (day.aiImprovement || 0),
+          actualRevenue: acc.actualRevenue + (day.actualRevenue || 0),
+          expectedRevenue: acc.expectedRevenue + (day.expectedRevenue || 0)
+        }), { alarmLoss: 0, revenueLoss: 0, aiImprovement: 0, actualRevenue: 0, expectedRevenue: 0 });
+
+        // 优先使用预计算的AI累计值（默认全量范围）
+        const totalAiImprovement = aiSummary
+          ? aiSummary.totalAiImprovement
+          : totals.aiImprovement;
 
         return (
           <div className="loss-pie-chart-section">
-            <h3>损失分析</h3>
+            <h3 style={{ display: 'flex', alignItems: 'center' }}>
+              损失分析
+              {Number(stationId) === 205 && (
+                <span className="vpp-dispatch-badge" style={{ marginLeft: 'auto' }}>VPP调度信息系统暂未获取</span>
+              )}
+            </h3>
             <p className="chart-description">分析损失收益的具体构成，包括设备停机损失、非计划性停机损失、节假日损失和其他类型损失</p>
-            <div className="loss-pie-container">
-              <LossBreakdownPieChart
-                alarmLoss={totals.alarmLoss}
-                totalRevenueLoss={totals.revenueLoss}
-                holidayLoss={holidayLossData?.totalHolidayLoss || 0}
-                unplannedOutageLoss={unplannedOutageLossData?.totalUnplannedOutageLoss || 0}
-                powerLimitationLoss={powerLimitationLossData?.totalPowerLimitationLoss || 0}
-                strategyDeviationLoss={strategyDeviationLossData?.totalStrategyDeviationLoss || 0}
-                onItemClick={handleLossBreakdownClick}
-                getLossTypeColor={getLossTypeColor}
-              />
+            {[205, 233].includes(Number(stationId)) && totals.expectedRevenue > 0 && (() => {
+              const improvementRate = totals.actualRevenue > 0 && totalAiImprovement > 0
+                ? ((totalAiImprovement / totals.actualRevenue) * 100).toFixed(2)
+                : '0.00';
+              const dataDays = lossComparison.length;
+              const annualizedAiImprovement = dataDays > 0 && totalAiImprovement > 0 ? (totalAiImprovement / dataDays) * 365 : 0;
+              return (
+                <div style={{
+                  display: 'flex',
+                  gap: '16px',
+                  marginBottom: '24px'
+                }}>
+                  <div style={{
+                    flex: 1, textAlign: 'center', padding: '16px 12px',
+                    background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                    borderRadius: '10px', border: '1px solid #bfdbfe'
+                  }}>
+                    <div style={{ fontSize: 12, color: '#64748b', marginBottom: 6, fontWeight: 600, letterSpacing: '0.5px' }}>预期收益</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: '#2563eb' }}>{formatCurrency(totals.expectedRevenue)}</div>
+                  </div>
+                  <div style={{
+                    flex: 1, textAlign: 'center', padding: '16px 12px',
+                    background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
+                    borderRadius: '10px', border: '1px solid #a7f3d0'
+                  }}>
+                    <div style={{ fontSize: 12, color: '#64748b', marginBottom: 6, fontWeight: 600, letterSpacing: '0.5px' }}>实际收益</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: '#059669' }}>{formatCurrency(totals.actualRevenue)}</div>
+                  </div>
+                  <div style={{
+                    flex: 1, textAlign: 'center', padding: '16px 12px',
+                    background: 'linear-gradient(135deg, #fef2f2 0%, #fecaca 100%)',
+                    borderRadius: '10px', border: '1px solid #fca5a5'
+                  }}>
+                    <div style={{ fontSize: 12, color: '#64748b', marginBottom: 6, fontWeight: 600, letterSpacing: '0.5px' }}>损失收益</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: '#dc2626' }}>{formatCurrency(totals.revenueLoss)}</div>
+                  </div>
+                  <div style={{
+                    flex: 1, textAlign: 'center', padding: '16px 12px',
+                    background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+                    borderRadius: '10px', border: '1px solid #fcd34d'
+                  }}>
+                    <div style={{ fontSize: 12, color: '#64748b', marginBottom: 6, fontWeight: 600, letterSpacing: '0.5px' }}>预计收益提升率</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: '#d97706' }}>{improvementRate}%</div>
+                  </div>
+                  <div style={{
+                    flex: 1, textAlign: 'center', padding: '16px 12px',
+                    background: 'linear-gradient(135deg, #faf5ff 0%, #e9d5ff 100%)',
+                    borderRadius: '10px', border: '1px solid #c4b5fd'
+                  }}>
+                    <div style={{ fontSize: 12, color: '#64748b', marginBottom: 6, fontWeight: 600, letterSpacing: '0.5px' }}>预计年化提升收益</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: '#7c3aed' }}>{formatCurrency(annualizedAiImprovement)}</div>
+                  </div>
+                </div>
+              );
+            })()}
+            <div className="loss-pie-dual-container">
+              <div className="loss-pie-dual-item">
+                <LossBreakdownPieChart
+                  alarmLoss={totals.alarmLoss}
+                  totalRevenueLoss={totals.revenueLoss}
+                  holidayLoss={holidayLossData?.totalHolidayLoss || 0}
+                  unplannedOutageLoss={unplannedOutageLossData?.totalUnplannedOutageLoss || 0}
+                  powerLimitationLoss={powerLimitationLossData?.totalPowerLimitationLoss || 0}
+                  strategyDeviationLoss={strategyDeviationLossData?.totalStrategyDeviationLoss || 0}
+                  onItemClick={handleLossBreakdownClick}
+                  stationId={stationId}
+                  aiSummary={aiSummary}
+                />
+              </div>
+
+              {/* AI预计可提升收益 */}
+              {totalAiImprovement > 0 && (
+                (() => {
+                  const aiImprovementPct = [205, 233].includes(Number(stationId)) && totals.actualRevenue > 0
+                    ? (totalAiImprovement / totals.actualRevenue * 100).toFixed(2)
+                    : null;
+                  return aiSummary?.ruleBreakdown?.length > 0 ? (
+                    <div className="loss-pie-dual-item ai-improvement-pie-section">
+                      <h4 className="ai-improvement-pie-title">
+                        <TrendingUp size={18} />
+                        预计AI可提升收益
+                        {aiImprovementPct && (
+                          <span className="ai-improvement-pct-badge"><TrendingUp size={14} /> +{aiImprovementPct}%</span>
+                        )}
+                      </h4>
+                      <div ref={aiSummaryPieRef} className="ai-improvement-pie-chart" />
+                    </div>
+                  ) : (
+                    <div className="loss-pie-dual-item">
+                      <div className="ai-improvement-summary">
+                        <div className="ai-improvement-icon">
+                          <TrendingUp size={20} />
+                        </div>
+                        <div className="ai-improvement-content">
+                          <div className="ai-improvement-label">AI预计可提升收益</div>
+                          <div className="ai-improvement-value">
+                            +{formatCurrency(totalAiImprovement)}
+                            {aiImprovementPct && (
+                              <span className="ai-improvement-pct-badge"><TrendingUp size={14} /> +{aiImprovementPct}%</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()
+              )}
             </div>
 
             {/* 告警损失明细表格 */}
@@ -1185,28 +1531,29 @@ export default function LossAnalysis({ stationId, stationData }) {
               <thead>
                 <tr>
                   <th>{timeView === 'daily' ? '日期' : '月份'}</th>
-                  <th>预期收益</th>
+                  {/* <th>预期收益</th> */}
                   <th>实际收益</th>
-                  <th>收益损失</th>
+                  {/* <th>收益损失</th> */}
                   <th>达成率</th>
                   <th>故障数</th>
                   <th>故障损失</th>
+                  {timeView === 'daily' && <th>预计AI可提升收益</th>}
+                  {timeView === 'daily' && <th>SOC变化</th>}
+                  {/* {timeView === 'daily' && <th>SOC末端异常</th>} */}
                   {/* <th>损失原因</th> */}
                   <th>操作</th>
                 </tr>
               </thead>
               <tbody>
                 {timeView === 'daily' ? (
-                  // 按日查看
-                  lossComparison
-                    .sort((a, b) => new Date(b.date) - new Date(a.date))
-                    .map((day, index) => {
-                      return (
+                  // 按日查看 - 使用分页数据
+                  paginatedData.data.map((day, index) => {
+                    return (
                         <tr key={index}>
                           <td>{formatDate(day.date)}</td>
-                          <td className="amount">{formatCurrency(day.expectedRevenue)}</td>
+                          {/* <td className="amount">{formatCurrency(day.expectedRevenue)}</td> */}
                           <td className="amount">{formatCurrency(day.actualRevenue)}</td>
-                          <td className="amount loss">{formatCurrency(day.revenueLoss)}</td>
+                          {/* <td className="amount loss">{formatCurrency(day.revenueLoss)}</td> */}
                           <td>
                             <span className={`achievement-badge ${
                               parseFloat(day.achievementRate) >= 90 ? 'success' :
@@ -1229,6 +1576,31 @@ export default function LossAnalysis({ stationId, stationData }) {
                               <span className="no-loss">-</span>
                             )}
                           </td>
+                          <td className="amount ai-new-improvement">
+                            {day.aiImprovement > 0 ? (
+                              <span className="ai-new-improvement-badge">
+                                +{formatCurrency(day.aiImprovement)}
+                              </span>
+                            ) : (
+                              <span className="no-loss">-</span>
+                            )}
+                          </td>
+                          <td className="soc-changed">
+                            {day.socChanged === true ? (
+                              <span className="soc-changed-badge yes">是</span>
+                            ) : day.socChanged === false ? (
+                              <span className="soc-changed-badge no">否</span>
+                            ) : (
+                              <span className="no-loss">-</span>
+                            )}
+                          </td>
+                          {/* <td className="soc-anomaly">
+                            {day.hasSocAnomaly ? (
+                              <span className="soc-changed-badge yes">是</span>
+                            ) : (
+                              <span className="soc-changed-badge no">否</span>
+                            )}
+                          </td> */}
                           {/* <td>
                             <div className="loss-breakdown">
                               {day.lossBreakdown && day.lossBreakdown.length > 0 && (
@@ -1280,21 +1652,68 @@ export default function LossAnalysis({ stationId, stationData }) {
                                 <LineChart size={14} />
                                 查看SOC详情
                               </button>
+                              {!stationData?.isAI && (
+                                <button
+                                  className="view-ai-analysis-btn"
+                                  disabled={aiAnalysisLoading}
+                                  onClick={async () => {
+                                    const isSpecial = [205, 233].includes(Number(stationId));
+                                    // 基础数据先设置
+                                    setAiAnalysisData({
+                                      date: day.date,
+                                      expectedRevenue: day.expectedRevenue,
+                                      actualRevenue: day.actualRevenue,
+                                      achievementRate: day.achievementRate,
+                                      aiImprovement: day.aiImprovement || 0,
+                                      isSpecialStation: isSpecial,
+                                      rules: null,
+                                    });
+                                    setShowAiAnalysisModal(true);
+
+                                    // 特殊电站调用详细分析API
+                                    if (isSpecial) {
+                                      setAiAnalysisLoading(true);
+                                      try {
+                                        const dateObj = new Date(day.date);
+                                        const UTC_OFFSET_MS = 8 * 60 * 60 * 1000;
+                                        const localDate = new Date(dateObj.getTime() + UTC_OFFSET_MS);
+                                        const dateStr = `${localDate.getUTCFullYear()}-${String(localDate.getUTCMonth() + 1).padStart(2, '0')}-${String(localDate.getUTCDate()).padStart(2, '0')}`;
+
+                                        const response = await api.get(`/revenue/station/${stationId}/ai-improvement`, {
+                                          params: { date: dateStr }
+                                        });
+                                        if (response.data.success) {
+                                          setAiAnalysisData(prev => ({
+                                            ...prev,
+                                            aiImprovement: response.data.data.totalImprovement,
+                                            rules: response.data.data.rules,
+                                          }));
+                                        }
+                                      } catch (err) {
+                                        console.error('AI分析请求失败:', err);
+                                      } finally {
+                                        setAiAnalysisLoading(false);
+                                      }
+                                    }
+                                  }}
+                                >
+                                  <TrendingUp size={14} />
+                                  AI可提升分析
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
                       );
                     })
                 ) : (
-                  // 按月查看
-                  aggregateByMonth(lossComparison)
-                    .sort((a, b) => b.month.localeCompare(a.month))
-                    .map((month, index) => (
+                  // 按月查看 - 使用分页数据
+                  paginatedData.data.map((month, index) => (
                       <tr key={index}>
                         <td>{formatMonth(month.month)}</td>
-                        <td className="amount">{formatCurrency(month.expectedRevenue)}</td>
+                        {/* <td className="amount">{formatCurrency(month.expectedRevenue)}</td> */}
                         <td className="amount">{formatCurrency(month.actualRevenue)}</td>
-                        <td className="amount loss">{formatCurrency(month.revenueLoss)}</td>
+                        {/* <td className="amount loss">{formatCurrency(month.revenueLoss)}</td> */}
                         <td>
                           <span className={`achievement-badge ${
                             parseFloat(month.achievementRate) >= 90 ? 'success' :
@@ -1371,9 +1790,9 @@ export default function LossAnalysis({ stationId, stationData }) {
                   <tfoot>
                     <tr className="totals-row">
                       <td><strong>总计</strong></td>
-                      <td className="amount"><strong>{formatCurrency(grandTotals.expectedRevenue)}</strong></td>
+                      {/* <td className="amount"><strong>{formatCurrency(grandTotals.expectedRevenue)}</strong></td> */}
                       <td className="amount"><strong>{formatCurrency(grandTotals.actualRevenue)}</strong></td>
-                      <td className="amount loss"><strong>{formatCurrency(grandTotals.revenueLoss)}</strong></td>
+                      {/* <td className="amount loss"><strong>{formatCurrency(grandTotals.revenueLoss)}</strong></td> */}
                       <td>
                         <span className={`achievement-badge ${
                           parseFloat(overallAchievementRate) >= 90 ? 'success' :
@@ -1402,6 +1821,68 @@ export default function LossAnalysis({ stationId, stationData }) {
                 );
               })()}
             </table>
+
+            {/* 分页控件 */}
+            {paginatedData.totalPages > 1 && (
+              <div className="pagination-container">
+                <div className="pagination-info">
+                  显示 {paginatedData.startIndex} - {paginatedData.endIndex} 条，
+                  共 {paginatedData.totalItems} 条记录
+                </div>
+
+                <div className="pagination-controls">
+                  <button
+                    className="pagination-btn"
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    aria-label="首页"
+                  >
+                    <ChevronsLeft size={18} />
+                  </button>
+                  <button
+                    className="pagination-btn"
+                    onClick={() => setCurrentPage(p => p - 1)}
+                    disabled={currentPage === 1}
+                    aria-label="上一页"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+
+                  <div className="pagination-pages">
+                    {generatePageNumbers(currentPage, paginatedData.totalPages).map((pageNum, idx) => (
+                      pageNum === '...' ? (
+                        <span key={`ellipsis-${idx}`} className="pagination-ellipsis">...</span>
+                      ) : (
+                        <button
+                          key={pageNum}
+                          className={`pagination-page-btn ${currentPage === pageNum ? 'active' : ''}`}
+                          onClick={() => setCurrentPage(pageNum)}
+                        >
+                          {pageNum}
+                        </button>
+                      )
+                    ))}
+                  </div>
+
+                  <button
+                    className="pagination-btn"
+                    onClick={() => setCurrentPage(p => p + 1)}
+                    disabled={currentPage === paginatedData.totalPages}
+                    aria-label="下一页"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                  <button
+                    className="pagination-btn"
+                    onClick={() => setCurrentPage(paginatedData.totalPages)}
+                    disabled={currentPage === paginatedData.totalPages}
+                    aria-label="末页"
+                  >
+                    <ChevronsRight size={18} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1453,6 +1934,241 @@ export default function LossAnalysis({ stationId, stationData }) {
         startDate={strategyDeviationLossData?.dateRange?.startDate || ''}
         endDate={strategyDeviationLossData?.dateRange?.endDate || ''}
       />
+
+      {/* 节假日损失详情弹窗 */}
+      <HolidayLossDetailModal
+        isOpen={showHolidayLossModal}
+        onClose={() => setShowHolidayLossModal(false)}
+        holidayLossData={holidayLossData}
+      />
+
+      {/* AI可提升分析弹窗 */}
+      {showAiAnalysisModal && aiAnalysisData && (
+        <div className="ai-analysis-modal-overlay" onClick={() => setShowAiAnalysisModal(false)}>
+          <div className={`ai-analysis-modal ${aiAnalysisData.isSpecialStation ? 'wide' : ''}`} onClick={(e) => e.stopPropagation()}>
+            <div className="ai-analysis-modal-header">
+              <h3>AI可提升分析</h3>
+              <button className="ai-analysis-close-btn" onClick={() => setShowAiAnalysisModal(false)}>&times;</button>
+            </div>
+            <div className="ai-analysis-modal-body">
+              <div className="ai-analysis-date">
+                {formatDate(aiAnalysisData.date)}
+              </div>
+              <div className="ai-analysis-grid">
+                <div className="ai-analysis-item">
+                  <span className="ai-analysis-label">实际收益</span>
+                  <span className="ai-analysis-value">{formatCurrency(aiAnalysisData.actualRevenue)}</span>
+                </div>
+                <div className="ai-analysis-item highlight">
+                  <span className="ai-analysis-label">预计AI可提升收益</span>
+                  <span className="ai-analysis-value boost">
+                    {aiAnalysisData.aiImprovement > 0 ? `+${formatCurrency(aiAnalysisData.aiImprovement)}` : '-'}
+                  </span>
+                </div>
+              </div>
+
+              {/* 特殊电站详细规则分析 */}
+              {aiAnalysisData.isSpecialStation && (
+                <div className="ai-rules-section">
+                  {aiAnalysisLoading ? (
+                    <div className="ai-rules-loading">
+                      <span className="spinner-small" /> 正在分析...
+                    </div>
+                  ) : aiAnalysisData.rules && aiAnalysisData.rules.length > 0 ? (
+                    aiAnalysisData.rules.map((rule, rIdx) => (
+                      <div key={rIdx} className={`ai-rule-card ${rule.ignored ? 'ignored' : ''}`}>
+                        <div className="ai-rule-header">
+                          <span className="ai-rule-tag">分析{rule.ruleId}</span>
+                          <span className="ai-rule-name">{rule.ruleName}</span>
+                          <span className={`ai-rule-amount ${rule.improvement > 0 && !rule.ignored ? 'has-value' : ''} ${rule.ignored ? 'ignored' : ''}`}>
+                            {rule.ignored ? (
+                              <s>{rule.improvement > 0 ? `+${formatCurrency(rule.improvement)}` : '¥0'}</s>
+                            ) : (
+                              rule.improvement > 0 ? `+${formatCurrency(rule.improvement)}` : '¥0'
+                            )}
+                          </span>
+                          {rule.improvement > 0 && !rule.ignored && (
+                            <button
+                              className="ignore-ai-btn"
+                              onClick={() => {
+                                setIgnoreTargetDay({ ruleId: rule.ruleId, ruleName: rule.ruleName, improvement: rule.improvement });
+                                setShowIgnoreModal(true);
+                              }}
+                            >
+                              <EyeOff size={12} />
+                              忽略
+                            </button>
+                          )}
+                          {rule.ignored && (
+                            <button
+                              className="restore-ai-btn"
+                              onClick={() => handleRestoreRule(rule.ruleId)}
+                            >
+                              <Eye size={12} />
+                              生效
+                            </button>
+                          )}
+                        </div>
+                        {rule.details && (
+                          <div className="ai-rule-details">
+                            {(rule.details.chargeCycleStart || rule.details.dischargeCycleStart) && (
+                              <div className="ai-rule-meta">
+                                {(rule.ruleId === 2 || rule.ruleId === 3) ? (
+                                  <>
+                                    放电周期: {rule.details.dischargeCycleStart} ~ {rule.details.dischargeCycleEnd}
+                                    {rule.details.priceDiff > 0 && (
+                                      <> | 价差: ¥{rule.details.priceDiff}/kWh</>
+                                    )}
+                                    {/* 用户用电量已移至表格列 */}
+                                  </>
+                                ) : (
+                                  <>
+                                    充电周期: {rule.details.chargeCycleStart} ~ {rule.details.chargeCycleEnd}
+                                    {rule.details.dischargeCycleStart && (
+                                      <> | 放电周期: {rule.details.dischargeCycleStart} ~ {rule.details.dischargeCycleEnd}</>
+                                    )}
+                                    {rule.details.priceDiff > 0 && (
+                                      <> | 价差: ¥{rule.details.priceDiff}/kWh</>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            )}
+                            {rule.details.gateways && rule.details.gateways.length > 0 && (
+                              <table className="ai-rule-table">
+                                <thead>
+                                  <tr>
+                                    <th>网关ID</th>
+                                    <th>容量(kWh)</th>
+                                    {rule.ruleId === 2 && <th>用户用电量</th>}
+                                    {rule.ruleId === 2 && <th>最低购电量</th>}
+                                    {rule.ruleId === 2 ? (
+                                      <>
+                                        <th>endSOC</th>
+                                        <th>目标SOC</th>
+                                      </>
+                                    ) : rule.ruleId === 3 ? (
+                                      <>
+                                        <th>endSOC</th>
+                                        <th>SOC下限</th>
+                                      </>
+                                    ) : (
+                                      <th>最大SOC</th>
+                                    )}
+                                    {rule.ruleId === 4 && <th>理论最大SOC</th>}
+                                    <th>SOC缺失</th>
+                                    <th>{rule.ruleId === 3 ? '有效可优化电量' : '缺失电量'}</th>
+                                    <th>{rule.ruleId === 3 ? '可优化收益' : '损失收益'}</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {rule.details.gateways.filter(gw => rule.ruleId === 2 ? (gw.hasData && !gw.error) : (!gw.reachedTarget && !gw.error)).map((gw, gIdx) => (
+                                    <tr key={gIdx} className={gw.reachedTarget ? 'reached' : 'not-reached'}>
+                                      <td className="gateway-id">{gw.gatewayId || '-'}</td>
+                                      <td>{gw.capacity || '-'}</td>
+                                      {rule.ruleId === 2 && (
+                                        <td>{gw.firstDischargeUserConsumption != null ? `${gw.firstDischargeUserConsumption} kWh` : '-'}</td>
+                                      )}
+                                      {rule.ruleId === 2 && (
+                                        <td>{gw.antiBackflowEnergy != null ? `${gw.antiBackflowEnergy} kWh` : '-'}</td>
+                                      )}
+                                      {rule.ruleId === 2 ? (
+                                        <>
+                                          <td>{gw.endSoc != null ? `${gw.endSoc}%` : '-'}</td>
+                                          <td>{gw.socLowerLimit != null ? `${gw.socLowerLimit}%` : '5%'}</td>
+                                        </>
+                                      ) : rule.ruleId === 3 ? (
+                                        <>
+                                          <td>{gw.endSoc != null ? `${gw.endSoc}%` : '-'}</td>
+                                          <td>{gw.socLowerLimit != null ? `${gw.socLowerLimit}%` : '-'}</td>
+                                        </>
+                                      ) : (
+                                        <td>{gw.maxSoc != null ? `${gw.maxSoc}%` : '-'}</td>
+                                      )}
+                                      {rule.ruleId === 4 && (
+                                        <td>{gw.expectedMaxSoc != null ? `${gw.expectedMaxSoc}%` : '-'}</td>
+                                      )}
+                                      <td>{gw.socDeficit > 0 ? `${gw.socDeficit}%` : '-'}</td>
+                                      <td>{gw.lostEnergy > 0 ? `${gw.lostEnergy} kWh` : '-'}</td>
+                                      <td className="amount">{gw.lostRevenue > 0 ? formatCurrency(gw.lostRevenue) : '-'}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            )}
+                            {rule.details.error && (
+                              <div className="ai-rule-error">{rule.details.error}</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="ai-rules-empty">暂无详细规则分析数据</div>
+                  )}
+                </div>
+              )}
+
+              {/* 普通电站简单提示 */}
+              {!aiAnalysisData.isSpecialStation && (
+                <>
+                  {aiAnalysisData.aiImprovement > 0 ? (
+                    <div className="ai-analysis-tip">
+                      <TrendingUp size={16} />
+                      <span>接入AI优化后，该日预计可提升收益 <strong>{formatCurrency(aiAnalysisData.aiImprovement)}</strong>，达成率有望提升至AI电站平均水平。</span>
+                    </div>
+                  ) : (
+                    <div className="ai-analysis-tip neutral">
+                      <span>当日暂无可提升空间，表现已接近AI电站水平。</span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 忽略AI提升原因弹框 */}
+      {showIgnoreModal && ignoreTargetDay && (
+        <div className="modal-overlay" onClick={() => { setShowIgnoreModal(false); setIgnoreTargetDay(null); setIgnoreReason(''); }}>
+          <div className="ignore-reason-modal" onClick={e => e.stopPropagation()}>
+            <div className="ignore-modal-header">
+              <h3><AlertTriangle size={18} /> 忽略AI可提升收益</h3>
+              <button className="ignore-modal-close-btn" onClick={() => { setShowIgnoreModal(false); setIgnoreTargetDay(null); setIgnoreReason(''); }} aria-label="关闭">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="ignore-modal-body">
+              {aiAnalysisData && <p className="ignore-date-info">日期：{formatDate(aiAnalysisData.date)}</p>}
+              <p className="ignore-date-info">规则：{ignoreTargetDay.ruleName}</p>
+              <p className="ignore-date-info">AI可提升收益：+{formatCurrency(ignoreTargetDay.improvement)}</p>
+              <label htmlFor="ignore-reason">请填写忽略原因：</label>
+              <textarea
+                id="ignore-reason"
+                value={ignoreReason}
+                onChange={e => setIgnoreReason(e.target.value)}
+                placeholder="例如：当天设备测试中，数据不具参考价值"
+                rows={3}
+                maxLength={200}
+              />
+              <div className="ignore-char-count">{ignoreReason.length}/200</div>
+            </div>
+            <div className="ignore-modal-footer">
+              <button className="ignore-cancel-btn" onClick={() => { setShowIgnoreModal(false); setIgnoreTargetDay(null); setIgnoreReason(''); }} disabled={ignoreLoading}>
+                取消
+              </button>
+              <button
+                className="ignore-confirm-btn"
+                onClick={handleIgnoreRule}
+                disabled={!ignoreReason.trim() || ignoreLoading}
+              >
+                {ignoreLoading ? <span className="spinner-small" /> : '确认忽略'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -18,7 +18,7 @@ export default function StationAnalysis() {
   const [gatewayInfo, setGatewayInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [chartType, setChartType] = useState('daily-bar'); // 'monthly', 'daily-trend', 'daily-bar', or 'loss-analysis'
+  const [chartType, setChartType] = useState('loss-analysis'); // 'monthly', 'daily-trend', 'daily-bar', or 'loss-analysis'
   const [rateAnalysisType, setRateAnalysisType] = useState('copilot-rate'); // 'copilot-rate' or 'avg-daily-rate'
   const [tooltip, setTooltip] = useState(null); // { content, x, y }
 
@@ -206,7 +206,7 @@ export default function StationAnalysis() {
                   </div>
                   {gateway.capacity && (
                     <div className="gateway-capacity">
-                      容量: {gateway.capacity} kW
+                      容量: {gateway.capacity} kWh
                     </div>
                   )}
                 </div>
@@ -227,7 +227,7 @@ export default function StationAnalysis() {
               <div className="card-content">
                 <div className="card-label">总预期收益</div>
                 <div className="card-value">{formatCurrency(stationData.summary.totalExpected)}</div>
-                <div className="card-meta">{stationData.summary.recordCount} 天数据</div>
+                {/* <div className="card-meta">{stationData.summary.recordCount} 天数据</div> */}
               </div>
             </div>
 
@@ -236,11 +236,11 @@ export default function StationAnalysis() {
                 <TrendingUp size={24} />
               </div>
               <div className="card-content">
-                <div className="card-label">实际年收益</div>
+                <div className="card-label">总实际收益</div>
                 <div className="card-value highlight">{formatCurrency(stationData.summary.totalActual)}</div>
-                <div className="card-meta">
+                {/* <div className="card-meta">
                   {formatDate(stationData.summary.dateRange.start)} - {formatDate(stationData.summary.dateRange.end)}
-                </div>
+                </div> */}
               </div>
             </div>
 
@@ -260,8 +260,8 @@ export default function StationAnalysis() {
               </div>
             </div>
 
-            {/* 可控收益率 */}
-            {stationData.summary.controllableRate !== undefined && (
+            {/* 隐藏可控收益率卡片 */}
+            {/* {stationData.summary.controllableRate !== undefined && (
               <div className="summary-card">
                 <div className="card-icon" style={{ background: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)' }}>
                   <BarChart3 size={24} />
@@ -273,10 +273,10 @@ export default function StationAnalysis() {
                   </div>
                 </div>
               </div>
-            )}
+            )} */}
 
-            {/* 预估提升金额 - 只在普通电站显示 */}
-            {!stationData.isAI && achievementStats && achievementStats.hasOptimization && (() => {
+            {/* 预估提升金额 - 只在普通电站显示，排除电站205/233 */}
+            {!stationData.isAI && ![205, 233].includes(Number(selectedStation)) && achievementStats && achievementStats.hasOptimization && (() => {
               const currentRate = stationData.summary.achievementRate;
               const aiRate = achievementStats.aiStations.averageAchievementRate;
               const rateDifference = aiRate - currentRate;
@@ -314,11 +314,11 @@ export default function StationAnalysis() {
           <div className="chart-controls">
             <div className="chart-type-tabs">
               <button
-                className={`tab-btn ${chartType === 'daily-bar' ? 'active' : ''}`}
-                onClick={() => setChartType('daily-bar')}
+                className={`tab-btn ${chartType === 'loss-analysis' ? 'active' : ''}`}
+                onClick={() => setChartType('loss-analysis')}
               >
-                <BarChart3 size={18} />
-                每日柱状图
+                <AlertTriangle size={18} />
+                损失分析
               </button>
               <button
                 className={`tab-btn ${chartType === 'monthly' ? 'active' : ''}`}
@@ -328,11 +328,11 @@ export default function StationAnalysis() {
                 月度统计
               </button>
               <button
-                className={`tab-btn ${chartType === 'loss-analysis' ? 'active' : ''}`}
-                onClick={() => setChartType('loss-analysis')}
+                className={`tab-btn ${chartType === 'daily-bar' ? 'active' : ''}`}
+                onClick={() => setChartType('daily-bar')}
               >
-                <AlertTriangle size={18} />
-                损失分析
+                <BarChart3 size={18} />
+                日收益分析
               </button>
             </div>
           </div>
@@ -476,8 +476,11 @@ export default function StationAnalysis() {
                     // AI average achievement rate
                     const aiAvgRate = achievementStats ? achievementStats.aiStations.averageAchievementRate : 0;
 
+                    // 反转数组，让最近的日期在前面
+                    const sortedRecords = [...stationData.dailyRecords].reverse();
+
                     // Calculate once for performance
-                    const recordsWithOptimization = stationData.dailyRecords.map((record, index) => {
+                    const recordsWithOptimization = sortedRecords.map((record, index) => {
                       // Calculate daily achievement rate
                       const dailyRate = record.expectedRevenue > 0
                         ? (record.actualRevenue / record.expectedRevenue) * 100
@@ -518,7 +521,7 @@ export default function StationAnalysis() {
                     const barWidth = 12;
                     const barSpacing = 4; // 柱子之间的间距
                     const barGroupWidth = barWidth + barSpacing; // 每组柱子的总宽度
-                    const totalWidth = stationData.dailyRecords.length * barGroupWidth;
+                    const totalWidth = sortedRecords.length * barGroupWidth;
                     const chartHeight = 300;
 
                     // 计算零轴位置（从顶部算起的百分比）
@@ -528,7 +531,7 @@ export default function StationAnalysis() {
                       : 50;
 
                     // Build expected revenue line path
-                    const expectedLinePath = stationData.dailyRecords.map((record, index) => {
+                    const expectedLinePath = sortedRecords.map((record, index) => {
                       const x = index * barGroupWidth + barWidth / 2;
                       // 将值转换为相对于零点的百分比位置
                       let yPercent;
@@ -566,9 +569,9 @@ export default function StationAnalysis() {
                               : 0;
 
                             // Show first, last, and evenly distributed labels
-                            const labelInterval = Math.ceil(stationData.dailyRecords.length / 15);
+                            const labelInterval = Math.ceil(sortedRecords.length / 15);
                             const shouldShowLabel = index === 0 ||
-                                                    index === stationData.dailyRecords.length - 1 ||
+                                                    index === sortedRecords.length - 1 ||
                                                     index % labelInterval === 0;
 
                             // 判断是否为负数收益
@@ -637,7 +640,7 @@ export default function StationAnalysis() {
                         </div>
 
                         {/* SVG overlay for expected revenue line */}
-                        <svg className="daily-line-overlay" viewBox={`0 0 ${totalWidth} ${chartHeight}`} preserveAspectRatio="none">
+                        <svg className="daily-line-overlay" viewBox={`0 0 ${totalWidth} ${chartHeight}`} preserveAspectRatio="none" style={{ width: totalWidth }}>
                           {/* 零轴线 */}
                           <line
                             x1="0"
@@ -660,7 +663,7 @@ export default function StationAnalysis() {
                           />
 
                           {/* Circular markers */}
-                          {stationData.dailyRecords.map((record, index) => {
+                          {sortedRecords.map((record, index) => {
                             const x = index * barGroupWidth + barWidth / 2;
                             // 使用相同的坐标系统
                             let yPercent;
@@ -736,8 +739,11 @@ export default function StationAnalysis() {
                   const showOptimization = achievementStats && achievementStats.hasOptimization;
                   const aiAvgRate = showOptimization ? achievementStats.aiStations.averageAchievementRate : 0;
 
+                  // 反转数组，让最近的日期在前面
+                  const sortedRecords = [...stationData.dailyRecords].reverse();
+
                   // 为每条记录添加优化金额
-                  const recordsWithOptimization = stationData.dailyRecords.map(record => {
+                  const recordsWithOptimization = sortedRecords.map(record => {
                     let optimizationAmount = 0;
                     if (showOptimization && record.expectedRevenue > 0) {
                       const currentRate = (record.actualRevenue / record.expectedRevenue) * 100;
@@ -865,7 +871,7 @@ export default function StationAnalysis() {
                         })}
                       </div>
 
-                      <svg className="daily-line-overlay" viewBox={`0 0 ${totalWidth} ${chartHeight}`} preserveAspectRatio="none">
+                      <svg className="daily-line-overlay" viewBox={`0 0 ${totalWidth} ${chartHeight}`} preserveAspectRatio="none" style={{ width: totalWidth }}>
                         <line
                           x1="0"
                           y1={(zeroPosition / 100) * chartHeight}
@@ -973,20 +979,23 @@ export default function StationAnalysis() {
 
                   {/* 绘制折线图 */}
                   {(() => {
+                    // 反转数组，让最近的日期在前面
+                    const sortedRecords = [...stationData.dailyRecords].reverse();
+
                     const maxRevenue = Math.max(
-                      ...stationData.dailyRecords.map(r => Math.max(r.expectedRevenue, r.actualRevenue))
+                      ...sortedRecords.map(r => Math.max(r.expectedRevenue, r.actualRevenue))
                     );
-                    const xStep = 900 / (stationData.dailyRecords.length - 1 || 1);
+                    const xStep = 900 / (sortedRecords.length - 1 || 1);
 
                     // 预期收益线
-                    const expectedPath = stationData.dailyRecords.map((record, index) => {
+                    const expectedPath = sortedRecords.map((record, index) => {
                       const x = 50 + index * xStep;
                       const y = 350 - (record.expectedRevenue / maxRevenue) * 300;
                       return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
                     }).join(' ');
 
                     // 实际收益线
-                    const actualPath = stationData.dailyRecords.map((record, index) => {
+                    const actualPath = sortedRecords.map((record, index) => {
                       const x = 50 + index * xStep;
                       const y = 350 - (record.actualRevenue / maxRevenue) * 300;
                       return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
@@ -998,8 +1007,8 @@ export default function StationAnalysis() {
                         <path d={actualPath} fill="none" stroke="#f472b6" strokeWidth="3" />
 
                         {/* 数据点 */}
-                        {stationData.dailyRecords.map((record, index) => {
-                          if (index % Math.ceil(stationData.dailyRecords.length / 30) !== 0) return null;
+                        {sortedRecords.map((record, index) => {
+                          if (index % Math.ceil(sortedRecords.length / 30) !== 0) return null;
                           const x = 50 + index * xStep;
                           const yActual = 350 - (record.actualRevenue / maxRevenue) * 300;
 
@@ -1059,8 +1068,8 @@ export default function StationAnalysis() {
             <LossAnalysis stationId={selectedStation} stationData={stationData} />
           )}
 
-          {/* 告警分析区域 - 显示在所有图表下方 */}
-          {stationData && (
+          {/* 告警分析区域 - 仅在损失分析视图显示 */}
+          {stationData && chartType === 'loss-analysis' && (
             <AlarmSection
               stationId={selectedStation}
               startDate={stationData.dailyRecords && stationData.dailyRecords.length > 0 ? stationData.dailyRecords[0].date : null}
@@ -1119,7 +1128,7 @@ export default function StationAnalysis() {
                       </div>
                       <div className="stat-row">
                         <span className="stat-label">实际收益:</span>
-                        <span className="stat-value highlight">{formatCurrency(year.totalActual)}</span>
+                        <span className="stat-value">{formatCurrency(year.totalActual)}</span>
                       </div>
                       <div className="stat-row">
                         <span className="stat-label">达成率:</span>
